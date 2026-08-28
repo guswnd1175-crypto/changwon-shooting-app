@@ -89,6 +89,7 @@
   let lang = localStorage.getItem("lang") || "ko";
   let currentDirection = "toRange";
   const workingData = { toRange: null, toCity: null };
+  const editRowIdx = { toRange: 0, toCity: 0 };
 
   function setLang(l) {
     lang = l;
@@ -150,25 +151,34 @@
     const card = document.createElement("div");
     card.className = "block-card";
 
-    card.appendChild(field(window.I18N[lang].textKo, block.ko, function (v) { block.ko = v; }));
-    card.appendChild(field(window.I18N[lang].textEn, block.en, function (v) { block.en = v; }));
+    const koInput = document.createElement("input");
+    koInput.type = "text";
+    koInput.className = "field-ko";
+    koInput.placeholder = window.I18N[lang].textKo;
+    koInput.value = block.ko || "";
+    koInput.addEventListener("input", function () { block.ko = this.value; });
+    card.appendChild(koInput);
 
-    const spanWrap = document.createElement("div");
-    const spanLabel = document.createElement("label");
-    spanLabel.textContent = window.I18N[lang].span;
+    const enInput = document.createElement("input");
+    enInput.type = "text";
+    enInput.className = "field-en";
+    enInput.placeholder = window.I18N[lang].textEn;
+    enInput.value = block.en || "";
+    enInput.addEventListener("input", function () { block.en = this.value; });
+    card.appendChild(enInput);
+
     const spanInput = document.createElement("input");
     spanInput.type = "number";
     spanInput.min = "1";
+    spanInput.className = "field-span";
+    spanInput.title = window.I18N[lang].span;
     spanInput.value = block.span || 1;
     spanInput.addEventListener("input", function () { block.span = parseInt(this.value, 10) || 1; });
-    spanWrap.appendChild(spanLabel);
-    spanWrap.appendChild(spanInput);
-    card.appendChild(spanWrap);
+    card.appendChild(spanInput);
 
-    const toneWrap = document.createElement("div");
-    const toneLabel = document.createElement("label");
-    toneLabel.textContent = window.I18N[lang].tone;
     const toneSelect = document.createElement("select");
+    toneSelect.className = "field-tone";
+    toneSelect.title = window.I18N[lang].tone;
     [["normal", window.I18N[lang].toneNormal], ["red", window.I18N[lang].toneRed], ["blue", window.I18N[lang].toneBlue]].forEach(function (opt) {
       const o = document.createElement("option");
       o.value = opt[0]; o.textContent = opt[1];
@@ -176,33 +186,16 @@
       toneSelect.appendChild(o);
     });
     toneSelect.addEventListener("change", function () { block.tone = this.value; });
-    toneWrap.appendChild(toneLabel);
-    toneWrap.appendChild(toneSelect);
-    card.appendChild(toneWrap);
+    card.appendChild(toneSelect);
 
-    const actions = document.createElement("div");
-    actions.className = "block-actions full";
     const removeBtn = document.createElement("button");
-    removeBtn.className = "link-btn";
-    removeBtn.textContent = window.I18N[lang].removeBlock;
+    removeBtn.className = "remove-block-btn";
+    removeBtn.textContent = "\u2715";
+    removeBtn.title = window.I18N[lang].removeBlock;
     removeBtn.addEventListener("click", onRemove);
-    actions.appendChild(removeBtn);
-    card.appendChild(actions);
+    card.appendChild(removeBtn);
 
     return card;
-
-    function field(labelText, value, onInput) {
-      const wrap = document.createElement("div");
-      const label = document.createElement("label");
-      label.textContent = labelText;
-      const input = document.createElement("input");
-      input.type = "text";
-      input.value = value || "";
-      input.addEventListener("input", function () { onInput(this.value); });
-      wrap.appendChild(label);
-      wrap.appendChild(input);
-      return wrap;
-    }
   }
 
   function renderHeaderEditor() {
@@ -242,54 +235,78 @@
     container.innerHTML = "";
     const table = workingData[currentDirection];
     if (!table) return;
+    table.rows = table.rows || [];
+    if (table.rows.length === 0) return;
 
-    (table.rows || []).forEach(function (row, rowIdx) {
-      const card = document.createElement("div");
-      card.className = "admin-row-card";
+    if (editRowIdx[currentDirection] >= table.rows.length) editRowIdx[currentDirection] = table.rows.length - 1;
+    if (editRowIdx[currentDirection] < 0) editRowIdx[currentDirection] = 0;
 
-      const head = document.createElement("div");
-      head.className = "row-head";
-      const dateLabel = document.createElement("label");
-      dateLabel.textContent = window.I18N[lang].dateLabel;
-      dateLabel.style.marginRight = "4px";
-      const dateInput = document.createElement("input");
-      dateInput.type = "text";
-      dateInput.value = row.date || "";
-      dateInput.addEventListener("input", function () { row.date = this.value; });
-      head.appendChild(dateLabel);
-      head.appendChild(dateInput);
-      card.appendChild(head);
-
-      (row.blocks || []).forEach(function (block, blockIdx) {
-        card.appendChild(blockCard(block, function () {
-          row.blocks.splice(blockIdx, 1);
-          renderRowsEditor();
-        }));
-      });
-
-      const rowActions = document.createElement("div");
-      rowActions.className = "row-actions";
-      const addBlockBtn = document.createElement("button");
-      addBlockBtn.className = "btn outline small";
-      addBlockBtn.textContent = window.I18N[lang].addBlock;
-      addBlockBtn.addEventListener("click", function () {
-        row.blocks = row.blocks || [];
-        row.blocks.push({ ko: "", en: "", span: 1, tone: "normal" });
+    // 날짜별 탭
+    const tabsEl = document.createElement("div");
+    tabsEl.className = "date-tabs";
+    table.rows.forEach(function (row, idx) {
+      const tab = document.createElement("div");
+      tab.className = "date-tab" + (idx === editRowIdx[currentDirection] ? " active" : "");
+      tab.textContent = window.formatDateWithWeekday(row.date, lang) || row.date || "?";
+      tab.addEventListener("click", function () {
+        editRowIdx[currentDirection] = idx;
         renderRowsEditor();
       });
-      const removeRowBtn = document.createElement("button");
-      removeRowBtn.className = "link-btn";
-      removeRowBtn.textContent = window.I18N[lang].removeRow;
-      removeRowBtn.addEventListener("click", function () {
-        table.rows.splice(rowIdx, 1);
-        renderRowsEditor();
-      });
-      rowActions.appendChild(addBlockBtn);
-      rowActions.appendChild(removeRowBtn);
-      card.appendChild(rowActions);
-
-      container.appendChild(card);
+      tabsEl.appendChild(tab);
     });
+    container.appendChild(tabsEl);
+
+    // 선택된 날짜의 편집 카드
+    const rowIdx = editRowIdx[currentDirection];
+    const row = table.rows[rowIdx];
+    const card = document.createElement("div");
+    card.className = "admin-row-card";
+
+    const head = document.createElement("div");
+    head.className = "row-head";
+    const dateLabel = document.createElement("label");
+    dateLabel.textContent = window.I18N[lang].dateLabel;
+    dateLabel.style.marginRight = "4px";
+    const dateInput = document.createElement("input");
+    dateInput.type = "text";
+    dateInput.value = row.date || "";
+    dateInput.addEventListener("input", function () {
+      row.date = this.value;
+      tabsEl.children[rowIdx].textContent = window.formatDateWithWeekday(row.date, lang) || row.date || "?";
+    });
+    head.appendChild(dateLabel);
+    head.appendChild(dateInput);
+    card.appendChild(head);
+
+    (row.blocks || []).forEach(function (block, blockIdx) {
+      card.appendChild(blockCard(block, function () {
+        row.blocks.splice(blockIdx, 1);
+        renderRowsEditor();
+      }));
+    });
+
+    const rowActions = document.createElement("div");
+    rowActions.className = "row-actions";
+    const addBlockBtn = document.createElement("button");
+    addBlockBtn.className = "btn outline small";
+    addBlockBtn.textContent = window.I18N[lang].addBlock;
+    addBlockBtn.addEventListener("click", function () {
+      row.blocks = row.blocks || [];
+      row.blocks.push({ ko: "", en: "", span: 1, tone: "normal" });
+      renderRowsEditor();
+    });
+    const removeRowBtn = document.createElement("button");
+    removeRowBtn.className = "link-btn";
+    removeRowBtn.textContent = window.I18N[lang].removeRow;
+    removeRowBtn.addEventListener("click", function () {
+      table.rows.splice(rowIdx, 1);
+      renderRowsEditor();
+    });
+    rowActions.appendChild(addBlockBtn);
+    rowActions.appendChild(removeRowBtn);
+    card.appendChild(rowActions);
+
+    container.appendChild(card);
   }
 
   document.getElementById("addRowBtn").addEventListener("click", function () {
@@ -297,6 +314,7 @@
     if (!table) return;
     table.rows = table.rows || [];
     table.rows.push({ date: "", blocks: [] });
+    editRowIdx[currentDirection] = table.rows.length - 1;
     renderRowsEditor();
   });
 

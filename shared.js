@@ -96,6 +96,25 @@ window.applyStaticI18n = function (lang) {
   });
 };
 
+// 시간표 날짜(MM.DD)의 요일을 계산할 때 기준으로 삼는 연도
+window.EVENT_YEAR = 2026;
+
+// "09.04" -> "09.04(금)" / "09.04(Fri)" 형태로 요일을 붙여줌
+window.formatDateWithWeekday = function (dateStr, lang) {
+  if (!dateStr) return dateStr;
+  var parts = dateStr.split(".");
+  if (parts.length < 2) return dateStr;
+  var month = parseInt(parts[0], 10);
+  var day = parseInt(parts[1], 10);
+  if (!month || !day) return dateStr;
+  var d = new Date(window.EVENT_YEAR, month - 1, day);
+  if (isNaN(d.getTime())) return dateStr;
+  var weekdays = lang === "en"
+    ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    : ["일", "월", "화", "수", "목", "금", "토"];
+  return dateStr + "(" + weekdays[d.getDay()] + ")";
+};
+
 // tone 값 -> css class 매핑
 window.toneClass = function (tone) {
   if (tone === "red") return "tone-red";
