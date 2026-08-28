@@ -106,35 +106,46 @@ body {
 }
 .date-tab.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: bold; }
 
-/* Table */
+/* Table (세로형 리스트) */
 .table-wrap {
   margin: 14px 12px 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
 }
-.table-row {
+.schedule-list {
   display: flex;
+  flex-direction: column;
 }
-.table-row.head { background: var(--accent-light); }
-.table-cell {
-  flex: 1;
-  padding: 12px 4px;
-  text-align: center;
-  font-size: 13px;
-  border-right: 1px solid var(--line);
+.schedule-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
   border-top: 1px solid var(--line);
-  word-break: keep-all;
 }
-.table-cell:last-child { border-right: none; }
-.table-row.head .table-cell.head-cell {
-  border-top: none;
+.schedule-item:first-child { border-top: none; }
+.schedule-item .item-label {
+  flex: 0 0 auto;
   font-weight: bold;
   color: var(--accent);
-  font-size: 12px;
+  font-size: 13px;
+  word-break: keep-all;
 }
-.table-cell.tone-red { background: var(--red-bg); color: var(--red); font-weight: bold; font-size: 11px; }
-.table-cell.tone-blue { background: var(--blue-bg); color: var(--blue); font-weight: bold; }
+.schedule-item .item-value {
+  flex: 1;
+  text-align: right;
+  font-size: 15px;
+  word-break: keep-all;
+}
+.schedule-item.tone-red { background: var(--red-bg); }
+.schedule-item.tone-red .item-label,
+.schedule-item.tone-red .item-value { color: var(--red); font-weight: bold; }
+.schedule-item.tone-red .item-value { font-size: 13px; }
+.schedule-item.tone-blue { background: var(--blue-bg); }
+.schedule-item.tone-blue .item-label,
+.schedule-item.tone-blue .item-value { color: var(--blue); font-weight: bold; }
 .table-empty {
   padding: 20px;
   text-align: center;

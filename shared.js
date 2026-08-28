@@ -114,13 +114,6 @@ window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate)
   containerEl.innerHTML = "";
   if (!tableData) return;
 
-  var headerRow = document.createElement("div");
-  headerRow.className = "table-row head";
-  (tableData.header || []).forEach(function (block) {
-    headerRow.appendChild(makeCell(block, lang, true));
-  });
-  containerEl.appendChild(headerRow);
-
   var row = (tableData.rows || []).find(function (r) { return r.date === selectedDate; });
   if (!row) {
     var empty = document.createElement("div");
@@ -130,20 +123,39 @@ window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate)
     return;
   }
 
-  var bodyRow = document.createElement("div");
-  bodyRow.className = "table-row";
-  (row.blocks || []).forEach(function (block) {
-    bodyRow.appendChild(makeCell(block, lang, false));
-  });
-  containerEl.appendChild(bodyRow);
-
-  function makeCell(block, lang, isHeader) {
-    var cell = document.createElement("div");
-    cell.className = "table-cell " + window.toneClass(block.tone) + (isHeader ? " head-cell" : "");
+  // 헤더의 각 칸(span 만큼)을 컬럼 슬롯 배열로 펼쳐서, 본문 블록의 span 위치와 매칭시킴
+  var headerSlots = [];
+  (tableData.header || []).forEach(function (block) {
     var span = block.span || 1;
-    cell.style.flex = span + " " + span + " 0";
-    cell.textContent = (lang === "en" ? block.en : block.ko) || "";
-    return cell;
+    var label = (lang === "en" ? block.en : block.ko) || "";
+    for (var i = 0; i < span; i++) headerSlots.push(label);
+  });
+
+  var list = document.createElement("div");
+  list.className = "schedule-list";
+  var offset = 0;
+  (row.blocks || []).forEach(function (block) {
+    var span = block.span || 1;
+    var covered = headerSlots.slice(offset, offset + span);
+    offset += span;
+    var seen = [];
+    covered.forEach(function (v) { if (v && seen.indexOf(v) === -1) seen.push(v); });
+    list.appendChild(makeItem(seen.join(" / "), block, lang));
+  });
+  containerEl.appendChild(list);
+
+  function makeItem(label, block, lang) {
+    var item = document.createElement("div");
+    item.className = "schedule-item " + window.toneClass(block.tone);
+    var labelEl = document.createElement("div");
+    labelEl.className = "item-label";
+    labelEl.textContent = label;
+    var valueEl = document.createElement("div");
+    valueEl.className = "item-value";
+    valueEl.textContent = (lang === "en" ? block.en : block.ko) || "";
+    item.appendChild(labelEl);
+    item.appendChild(valueEl);
+    return item;
   }
 };
 
