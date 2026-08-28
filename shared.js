@@ -82,7 +82,13 @@ window.I18N = {
     imageTooLargeMsg: "이미지 용량이 너무 큽니다. 다른 사진을 선택해주세요.",
     anonymousDisplay: "익명",
     secretLockLabel: "🔒 비밀글",
-    searchNoResult: "검색 결과가 없습니다."
+    searchNoResult: "검색 결과가 없습니다.",
+    editPostBtn: "수정",
+    editPasswordPrompt: "수정하려면 비밀번호를 입력하세요.",
+    postPasswordEditPlaceholder: "비밀번호 변경 시에만 입력 (선택)",
+    newPostTitle: "새 글 작성",
+    editPostTitle: "게시글 수정",
+    scheduleChangeNotice: "※ 변동사항이 있을 시 즉시 반영됩니다."
   },
   en: {
     pageTitle: "Changwon 2026 WSPS World Championships",
@@ -155,7 +161,13 @@ window.I18N = {
     imageTooLargeMsg: "The image is too large. Please choose another photo.",
     anonymousDisplay: "Anonymous",
     secretLockLabel: "🔒 Private",
-    searchNoResult: "No matching posts."
+    searchNoResult: "No matching posts.",
+    editPostBtn: "Edit",
+    editPasswordPrompt: "Enter the password to edit this post.",
+    postPasswordEditPlaceholder: "Enter only to change password (optional)",
+    newPostTitle: "New Post",
+    editPostTitle: "Edit Post",
+    scheduleChangeNotice: "※ Any changes will be reflected immediately."
   }
 };
 

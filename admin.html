@@ -35,34 +35,42 @@
       <button class="btn small outline" id="logoutBtn" data-i18n="logoutBtn">로그아웃</button>
     </div>
 
-    <div class="dir-tabs" id="dirTabs"></div>
+    <div class="admin-section-tabs" id="adminSectionTabs"></div>
 
-    <div class="section-title" data-i18n="editTableTitle">시간표 수정</div>
-    <div id="rowsEditor"></div>
-    <div class="save-bar">
-      <button class="btn outline small" id="addRowBtn" data-i18n="addRow">+ 날짜(행) 추가</button>
-      <button class="btn" id="saveTableBtn" data-i18n="saveBtn">저장 (실시간 반영)</button>
-      <div class="save-msg" id="tableSaveMsg"></div>
+    <div id="scheduleSection">
+      <div class="dir-tabs" id="dirTabs"></div>
+
+      <div class="section-title" data-i18n="editTableTitle">시간표 수정</div>
+      <div id="rowsEditor"></div>
+      <div class="save-bar">
+        <button class="btn outline small" id="addRowBtn" data-i18n="addRow">+ 날짜(행) 추가</button>
+        <button class="btn" id="saveTableBtn" data-i18n="saveBtn">저장 (실시간 반영)</button>
+        <div class="save-msg" id="tableSaveMsg"></div>
+      </div>
+
+      <div class="section-title">초기 데이터</div>
+      <div class="save-bar">
+        <button class="btn danger small" id="loadSeedBtn" data-i18n="loadSeedBtn">샘플 시간표 불러오기 (최초 1회, 기존 데이터 덮어씀)</button>
+        <div class="save-msg" id="seedMsg"></div>
+      </div>
     </div>
 
-    <div class="section-title" data-i18n="editNoticeTitle">공지사항 수정</div>
-    <div class="admin-row-card notice-edit">
-      <label data-i18n="noticeInputLabel">공지사항 내용 (한글, 영문은 자동 번역됨)</label>
-      <textarea id="noticeKo"></textarea>
-    </div>
-    <div class="save-bar">
-      <button class="btn" id="saveNoticeBtn" data-i18n="saveBtn">저장 (실시간 반영)</button>
-      <div class="save-msg" id="noticeSaveMsg"></div>
+    <div id="noticeSection" style="display:none;">
+      <div class="section-title" data-i18n="editNoticeTitle">공지사항 수정</div>
+      <div class="admin-row-card notice-edit">
+        <label data-i18n="noticeInputLabel">공지사항 내용 (한글, 영문은 자동 번역됨)</label>
+        <textarea id="noticeKo"></textarea>
+      </div>
+      <div class="save-bar">
+        <button class="btn" id="saveNoticeBtn" data-i18n="saveBtn">저장 (실시간 반영)</button>
+        <div class="save-msg" id="noticeSaveMsg"></div>
+      </div>
     </div>
 
-    <div class="section-title" data-i18n="editBoardTitle">게시판 관리</div>
-    <div class="board-type-tabs" id="adminBoardTypeTabs"></div>
-    <div id="adminBoardListWrap"></div>
-
-    <div class="section-title">초기 데이터</div>
-    <div class="save-bar">
-      <button class="btn danger small" id="loadSeedBtn" data-i18n="loadSeedBtn">샘플 시간표 불러오기 (최초 1회, 기존 데이터 덮어씀)</button>
-      <div class="save-msg" id="seedMsg"></div>
+    <div id="boardSection" style="display:none;">
+      <div class="section-title" data-i18n="editBoardTitle">게시판 관리</div>
+      <div class="board-type-tabs" id="adminBoardTypeTabs"></div>
+      <div id="adminBoardListWrap"></div>
     </div>
 
     <div class="spacer"></div>
@@ -102,10 +110,41 @@
   document.getElementById("langBtnLogin").addEventListener("click", function () { setLang(lang === "ko" ? "en" : "ko"); });
   document.getElementById("langBtnEdit").addEventListener("click", function () {
     setLang(lang === "ko" ? "en" : "ko");
+    renderAdminSectionTabs();
     renderRowsEditor();
     renderAdminBoardTypeTabs();
     renderAdminBoardList();
   });
+
+  // ---------- 관리자 화면 섹션 탭 ----------
+  const ADMIN_SECTIONS = [
+    { key: "schedule", i18nKey: "editTableTitle", el: "scheduleSection" },
+    { key: "notice", i18nKey: "editNoticeTitle", el: "noticeSection" },
+    { key: "board", i18nKey: "editBoardTitle", el: "boardSection" }
+  ];
+  let currentAdminSection = "schedule";
+
+  function renderAdminSectionTabs() {
+    const el = document.getElementById("adminSectionTabs");
+    el.innerHTML = "";
+    ADMIN_SECTIONS.forEach(function (s) {
+      const tab = document.createElement("div");
+      tab.className = "admin-section-tab" + (s.key === currentAdminSection ? " active" : "");
+      tab.textContent = window.I18N[lang][s.i18nKey];
+      tab.addEventListener("click", function () {
+        currentAdminSection = s.key;
+        showAdminSection();
+        renderAdminSectionTabs();
+      });
+      el.appendChild(tab);
+    });
+  }
+
+  function showAdminSection() {
+    ADMIN_SECTIONS.forEach(function (s) {
+      document.getElementById(s.el).style.display = s.key === currentAdminSection ? "block" : "none";
+    });
+  }
 
   // ---------- 로그인 ----------
   document.getElementById("loginBtn").addEventListener("click", function () {
@@ -437,6 +476,8 @@
   // ---------- 초기화 ----------
   async function init() {
     setLang(lang);
+    renderAdminSectionTabs();
+    showAdminSection();
     await loadDirection(currentDirection);
     renderDirTabs();
     renderRowsEditor();

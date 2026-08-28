@@ -17,7 +17,11 @@ service cloud.firestore {
       allow read: if true;
       allow create: if true;
       allow delete: if true;
-      allow update: if request.auth != null;
+      // 관리자(로그인)는 전체 수정 가능(답변 등록 포함).
+      // 비로그인 사용자는 비밀번호 확인 후 자기 글의 제목/내용/사진/작성자정보/비밀번호만 수정 가능(답변, 게시판 종류는 수정 불가)
+      allow update: if request.auth != null
+        || request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['title', 'content', 'imageData', 'anonymous', 'name', 'country', 'passwordHash', 'updatedAt']);
 
       match /comments/{commentId} {
         allow read: if true;

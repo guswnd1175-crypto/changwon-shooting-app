@@ -29,6 +29,7 @@
 
   <!-- 글쓰기 화면 -->
   <div id="boardWriteView" class="post-form" style="display:none;">
+    <div class="section-title" id="writeFormTitle">새 글 작성</div>
     <label data-i18n="postTitleLabel">제목</label>
     <input type="text" id="postTitleInput" data-i18n-placeholder="postTitlePlaceholder" placeholder="제목을 입력하세요">
 
@@ -72,7 +73,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getFirestore, collection, query, orderBy, onSnapshot,
-    addDoc, deleteDoc, doc, getDocs, serverTimestamp
+    addDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const app = initializeApp(window.FIREBASE_CONFIG);
@@ -85,6 +86,7 @@
   const unlockedPosts = new Set();
   let selectedImageDataUrl = null;
   let commentUnsub = null;
+  let editingPostId = null;
 
   function dict() { return window.I18N[lang]; }
 
@@ -216,9 +218,23 @@
       el.appendChild(replyBox);
     }
 
+    const actions = document.createElement("div");
+    actions.className = "post-detail-actions";
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "btn outline small";
+    editBtn.textContent = dict().editPostBtn;
+    editBtn.addEventListener("click", async function () {
+      const pw = prompt(dict().editPasswordPrompt);
+      if (pw === null) return;
+      const hash = await window.sha256Hex(pw);
+      if (hash !== post.passwordHash) { alert(dict().wrongPassword); return; }
+      openEditForm(post);
+    });
+    actions.appendChild(editBtn);
+
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn outline small";
-    deleteBtn.style.marginTop = "14px";
     deleteBtn.textContent = dict().deletePostBtn;
     deleteBtn.addEventListener("click", async function () {
       const pw = prompt(dict().deletePasswordPrompt);
@@ -232,7 +248,9 @@
       } catch (e) {}
       setView("list");
     });
-    el.appendChild(deleteBtn);
+    actions.appendChild(deleteBtn);
+
+    el.appendChild(actions);
 
     if (post.board === "free") {
       el.appendChild(buildCommentsSection(post));
@@ -346,19 +364,53 @@
     document.getElementById("postNameInput").value = "";
     document.getElementById("postCountryInput").value = "";
     document.getElementById("postPasswordInput").value = "";
+    document.getElementById("postPasswordInput").placeholder = dict().postPasswordPlaceholder;
     document.getElementById("postImageInput").value = "";
     document.getElementById("postImagePreview").style.display = "none";
     document.getElementById("postImagePreview").src = "";
     document.getElementById("removeImageBtn").style.display = "none";
     document.getElementById("writeMsg").textContent = "";
+    document.getElementById("writeFormTitle").textContent = dict().newPostTitle;
     selectedImageDataUrl = null;
   }
 
+  function openEditForm(post) {
+    editingPostId = post.id;
+    currentBoard = post.board;
+    document.getElementById("postTitleInput").value = post.title || "";
+    document.getElementById("postContentInput").value = post.content || "";
+    document.getElementById("postAnonymous").checked = !!post.anonymous;
+    document.getElementById("authorFields").style.display = post.anonymous ? "none" : "flex";
+    document.getElementById("postNameInput").value = post.name || "";
+    document.getElementById("postCountryInput").value = post.country || "";
+    document.getElementById("postPasswordInput").value = "";
+    document.getElementById("postPasswordInput").placeholder = dict().postPasswordEditPlaceholder;
+    document.getElementById("postImageInput").value = "";
+    selectedImageDataUrl = post.imageData || null;
+    const preview = document.getElementById("postImagePreview");
+    if (selectedImageDataUrl) {
+      preview.src = selectedImageDataUrl;
+      preview.style.display = "block";
+      document.getElementById("removeImageBtn").style.display = "inline-block";
+    } else {
+      preview.style.display = "none";
+      preview.src = "";
+      document.getElementById("removeImageBtn").style.display = "none";
+    }
+    document.getElementById("writeMsg").textContent = "";
+    document.getElementById("writeFormTitle").textContent = dict().editPostTitle;
+    setView("write");
+  }
+
   document.getElementById("writeBtn").addEventListener("click", function () {
+    editingPostId = null;
     resetWriteForm();
     setView("write");
   });
-  document.getElementById("cancelWriteBtn").addEventListener("click", function () { setView("list"); });
+  document.getElementById("cancelWriteBtn").addEventListener("click", function () {
+    editingPostId = null;
+    setView("list");
+  });
 
   document.getElementById("postAnonymous").addEventListener("change", function () {
     document.getElementById("authorFields").style.display = this.checked ? "none" : "flex";
@@ -394,25 +446,40 @@
     const name = anonymous ? "" : document.getElementById("postNameInput").value.trim();
     const country = anonymous ? "" : document.getElementById("postCountryInput").value.trim();
     const msg = document.getElementById("writeMsg");
-    if (!title || !content || !password) {
+    if (!title || !content || (!editingPostId && !password)) {
       msg.textContent = dict().requiredFieldsMsg;
       msg.className = "save-msg err";
       return;
     }
-    const passwordHash = await window.sha256Hex(password);
     try {
-      await addDoc(collection(db, "posts"), {
-        board: currentBoard,
-        title: title,
-        content: content,
-        imageData: selectedImageDataUrl || null,
-        anonymous: anonymous,
-        name: name,
-        country: country,
-        passwordHash: passwordHash,
-        adminReply: null,
-        createdAt: serverTimestamp()
-      });
+      if (editingPostId) {
+        const updateData = {
+          title: title,
+          content: content,
+          imageData: selectedImageDataUrl || null,
+          anonymous: anonymous,
+          name: name,
+          country: country,
+          updatedAt: serverTimestamp()
+        };
+        if (password) updateData.passwordHash = await window.sha256Hex(password);
+        await updateDoc(doc(db, "posts", editingPostId), updateData);
+        editingPostId = null;
+      } else {
+        const passwordHash = await window.sha256Hex(password);
+        await addDoc(collection(db, "posts"), {
+          board: currentBoard,
+          title: title,
+          content: content,
+          imageData: selectedImageDataUrl || null,
+          anonymous: anonymous,
+          name: name,
+          country: country,
+          passwordHash: passwordHash,
+          adminReply: null,
+          createdAt: serverTimestamp()
+        });
+      }
       setView("list");
     } catch (e) {
       msg.textContent = dict().saveFail;
