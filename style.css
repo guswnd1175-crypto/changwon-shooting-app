@@ -170,7 +170,6 @@ body {
   border-radius: 8px;
   overflow: hidden;
   font-size: 13px;
-  white-space: pre-wrap;
   line-height: 1.5;
 }
 .notice-title {
@@ -183,7 +182,7 @@ body {
   background: rgba(253, 216, 53, 0.18);
   border-bottom: 1px solid #fdd835;
 }
-#noticeText { padding: 12px; }
+#noticeText { padding: 12px; white-space: pre-wrap; }
 .notice:empty, .notice.hidden { display: none; }
 
 .spacer { flex: 1; }
