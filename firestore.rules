@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 시간표: 누구나 읽기 가능(링크만 있으면 됨), 쓰기는 로그인(관리자)한 경우만
+    match /schedules/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    // 공지사항: 동일
+    match /meta/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

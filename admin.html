@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>관리자 - 창원 장애인사격대회 셔틀버스 시간표</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+
+  <!-- 로그인 화면 -->
+  <div id="loginScreen">
+    <div class="header">
+      <img class="logo" src="assets/logo.png" alt="logo" onerror="this.style.display='none'">
+      <div class="title" data-i18n="adminTitle">관리자 모드</div>
+      <button class="lang-btn" id="langBtnLogin" data-i18n="langBtn">ENG</button>
+    </div>
+    <div class="login-wrap">
+      <input type="password" id="pwInput" data-i18n-placeholder="pwPlaceholder" placeholder="관리자 비밀번호">
+      <button class="btn" id="loginBtn" data-i18n="loginBtn">로그인</button>
+      <div class="error-text" id="loginError"></div>
+      <a href="index.html" class="btn outline" data-i18n="backToMain" style="text-decoration:none;">← 참가자 화면으로</a>
+    </div>
+  </div>
+
+  <!-- 편집 화면 (로그인 후) -->
+  <div id="editScreen" style="display:none;">
+    <div class="header">
+      <img class="logo" src="assets/logo.png" alt="logo" onerror="this.style.display='none'">
+      <div class="title" data-i18n="adminTitle">관리자 모드</div>
+      <button class="lang-btn" id="langBtnEdit" data-i18n="langBtn">ENG</button>
+    </div>
+    <div class="top-admin-bar">
+      <button class="btn small outline" id="logoutBtn" data-i18n="logoutBtn">로그아웃</button>
+    </div>
+
+    <div class="dir-tabs" id="dirTabs"></div>
+
+    <div class="section-title" data-i18n="editTableTitle">시간표 수정</div>
+    <div id="headerEditor"></div>
+    <div id="rowsEditor"></div>
+    <div class="save-bar">
+      <button class="btn outline small" id="addRowBtn" data-i18n="addRow">+ 날짜(행) 추가</button>
+      <button class="btn" id="saveTableBtn" data-i18n="saveBtn">저장 (실시간 반영)</button>
+      <div class="save-msg" id="tableSaveMsg"></div>
+    </div>
+
+    <div class="section-title" data-i18n="editNoticeTitle">공지사항 수정</div>
+    <div class="admin-row-card notice-edit">
+      <label data-i18n="textKo">한글 텍스트</label>
+      <textarea id="noticeKo"></textarea>
+      <label data-i18n="textEn" style="margin-top:8px;">영문 텍스트</label>
+      <textarea id="noticeEn"></textarea>
+    </div>
+    <div class="save-bar">
+      <button class="btn" id="saveNoticeBtn" data-i18n="saveBtn">저장 (실시간 반영)</button>
+      <div class="save-msg" id="noticeSaveMsg"></div>
+    </div>
+
+    <div class="section-title">초기 데이터</div>
+    <div class="save-bar">
+      <button class="btn danger small" id="loadSeedBtn" data-i18n="loadSeedBtn">샘플 시간표 불러오기 (최초 1회, 기존 데이터 덮어씀)</button>
+      <div class="save-msg" id="seedMsg"></div>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="admin-entry"><a href="index.html" data-i18n="backToMain">← 참가자 화면으로</a></div>
+  </div>
+
+</div>
+
+<script src="firebase-config.js"></script>
+<script src="shared.js"></script>
+<script src="seed-data.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const app = initializeApp(window.FIREBASE_CONFIG);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  let lang = localStorage.getItem("lang") || "ko";
+  let currentDirection = "toRange";
+  const workingData = { toRange: null, toCity: null };
+
+  function setLang(l) {
+    lang = l;
+    localStorage.setItem("lang", lang);
+    window.applyStaticI18n(lang);
+    document.documentElement.lang = lang;
+  }
+  document.getElementById("langBtnLogin").addEventListener("click", function () { setLang(lang === "ko" ? "en" : "ko"); });
+  document.getElementById("langBtnEdit").addEventListener("click", function () {
+    setLang(lang === "ko" ? "en" : "ko");
+    renderRowsEditor();
+  });
+
+  // ---------- 로그인 ----------
+  document.getElementById("loginBtn").addEventListener("click", function () {
+    const pw = document.getElementById("pwInput").value;
+    document.getElementById("loginError").textContent = "";
+    signInWithEmailAndPassword(auth, window.ADMIN_EMAIL, pw).catch(function () {
+      document.getElementById("loginError").textContent = window.I18N[lang].loginFail;
+    });
+  });
+  document.getElementById("pwInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") document.getElementById("loginBtn").click();
+  });
+  document.getElementById("logoutBtn").addEventListener("click", function () { signOut(auth); });
+
+  onAuthStateChanged(auth, function (user) {
+    document.getElementById("loginScreen").style.display = user ? "none" : "block";
+    document.getElementById("editScreen").style.display = user ? "block" : "none";
+    if (user) init();
+  });
+
+  // ---------- 방향 탭 ----------
+  function renderDirTabs() {
+    const el = document.getElementById("dirTabs");
+    el.innerHTML = "";
+    window.DIRECTIONS.forEach(function (d) {
+      const tab = document.createElement("div");
+      tab.className = "dir-tab" + (d.key === currentDirection ? " active" : "");
+      tab.textContent = d.label;
+      tab.addEventListener("click", async function () {
+        currentDirection = d.key;
+        await loadDirection(currentDirection);
+        renderDirTabs();
+        renderRowsEditor();
+      });
+      el.appendChild(tab);
+    });
+  }
+
+  async function loadDirection(direction) {
+    if (workingData[direction]) return;
+    const snap = await getDoc(doc(db, "schedules", direction));
+    workingData[direction] = snap.exists() ? snap.data() : { header: [], rows: [] };
+  }
+
+  // ---------- 헤더/행 에디터 ----------
+  function blockCard(block, onRemove) {
+    const card = document.createElement("div");
+    card.className = "block-card";
+
+    card.appendChild(field(window.I18N[lang].textKo, block.ko, function (v) { block.ko = v; }));
+    card.appendChild(field(window.I18N[lang].textEn, block.en, function (v) { block.en = v; }));
+
+    const spanWrap = document.createElement("div");
+    const spanLabel = document.createElement("label");
+    spanLabel.textContent = window.I18N[lang].span;
+    const spanInput = document.createElement("input");
+    spanInput.type = "number";
+    spanInput.min = "1";
+    spanInput.value = block.span || 1;
+    spanInput.addEventListener("input", function () { block.span = parseInt(this.value, 10) || 1; });
+    spanWrap.appendChild(spanLabel);
+    spanWrap.appendChild(spanInput);
+    card.appendChild(spanWrap);
+
+    const toneWrap = document.createElement("div");
+    const toneLabel = document.createElement("label");
+    toneLabel.textContent = window.I18N[lang].tone;
+    const toneSelect = document.createElement("select");
+    [["normal", window.I18N[lang].toneNormal], ["red", window.I18N[lang].toneRed], ["blue", window.I18N[lang].toneBlue]].forEach(function (opt) {
+      const o = document.createElement("option");
+      o.value = opt[0]; o.textContent = opt[1];
+      if ((block.tone || "normal") === opt[0]) o.selected = true;
+      toneSelect.appendChild(o);
+    });
+    toneSelect.addEventListener("change", function () { block.tone = this.value; });
+    toneWrap.appendChild(toneLabel);
+    toneWrap.appendChild(toneSelect);
+    card.appendChild(toneWrap);
+
+    const actions = document.createElement("div");
+    actions.className = "block-actions full";
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "link-btn";
+    removeBtn.textContent = window.I18N[lang].removeBlock;
+    removeBtn.addEventListener("click", onRemove);
+    actions.appendChild(removeBtn);
+    card.appendChild(actions);
+
+    return card;
+
+    function field(labelText, value, onInput) {
+      const wrap = document.createElement("div");
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = value || "";
+      input.addEventListener("input", function () { onInput(this.value); });
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+      return wrap;
+    }
+  }
+
+  function renderHeaderEditor() {
+    const container = document.getElementById("headerEditor");
+    container.innerHTML = "";
+    const table = workingData[currentDirection];
+    if (!table) return;
+    const card = document.createElement("div");
+    card.className = "admin-row-card";
+    const title = document.createElement("div");
+    title.style.fontSize = "11px";
+    title.style.color = "#777";
+    title.style.marginBottom = "6px";
+    title.textContent = "Header";
+    card.appendChild(title);
+    (table.header || []).forEach(function (block, idx) {
+      card.appendChild(blockCard(block, function () {
+        table.header.splice(idx, 1);
+        renderHeaderEditor();
+      }));
+    });
+    const addBtn = document.createElement("button");
+    addBtn.className = "btn outline small";
+    addBtn.textContent = window.I18N[lang].addBlock;
+    addBtn.addEventListener("click", function () {
+      table.header = table.header || [];
+      table.header.push({ ko: "", en: "", span: 1, tone: "normal" });
+      renderHeaderEditor();
+    });
+    card.appendChild(addBtn);
+    container.appendChild(card);
+  }
+
+  function renderRowsEditor() {
+    renderHeaderEditor();
+    const container = document.getElementById("rowsEditor");
+    container.innerHTML = "";
+    const table = workingData[currentDirection];
+    if (!table) return;
+
+    (table.rows || []).forEach(function (row, rowIdx) {
+      const card = document.createElement("div");
+      card.className = "admin-row-card";
+
+      const head = document.createElement("div");
+      head.className = "row-head";
+      const dateLabel = document.createElement("label");
+      dateLabel.textContent = window.I18N[lang].dateLabel;
+      dateLabel.style.marginRight = "4px";
+      const dateInput = document.createElement("input");
+      dateInput.type = "text";
+      dateInput.value = row.date || "";
+      dateInput.addEventListener("input", function () { row.date = this.value; });
+      head.appendChild(dateLabel);
+      head.appendChild(dateInput);
+      card.appendChild(head);
+
+      (row.blocks || []).forEach(function (block, blockIdx) {
+        card.appendChild(blockCard(block, function () {
+          row.blocks.splice(blockIdx, 1);
+          renderRowsEditor();
+        }));
+      });
+
+      const rowActions = document.createElement("div");
+      rowActions.className = "row-actions";
+      const addBlockBtn = document.createElement("button");
+      addBlockBtn.className = "btn outline small";
+      addBlockBtn.textContent = window.I18N[lang].addBlock;
+      addBlockBtn.addEventListener("click", function () {
+        row.blocks = row.blocks || [];
+        row.blocks.push({ ko: "", en: "", span: 1, tone: "normal" });
+        renderRowsEditor();
+      });
+      const removeRowBtn = document.createElement("button");
+      removeRowBtn.className = "link-btn";
+      removeRowBtn.textContent = window.I18N[lang].removeRow;
+      removeRowBtn.addEventListener("click", function () {
+        table.rows.splice(rowIdx, 1);
+        renderRowsEditor();
+      });
+      rowActions.appendChild(addBlockBtn);
+      rowActions.appendChild(removeRowBtn);
+      card.appendChild(rowActions);
+
+      container.appendChild(card);
+    });
+  }
+
+  document.getElementById("addRowBtn").addEventListener("click", function () {
+    const table = workingData[currentDirection];
+    if (!table) return;
+    table.rows = table.rows || [];
+    table.rows.push({ date: "", blocks: [] });
+    renderRowsEditor();
+  });
+
+  document.getElementById("saveTableBtn").addEventListener("click", async function () {
+    const msg = document.getElementById("tableSaveMsg");
+    try {
+      await setDoc(doc(db, "schedules", currentDirection), workingData[currentDirection]);
+      msg.textContent = window.I18N[lang].saved;
+      msg.className = "save-msg ok";
+    } catch (e) {
+      msg.textContent = window.I18N[lang].saveFail;
+      msg.className = "save-msg err";
+    }
+  });
+
+  // ---------- 공지사항 ----------
+  async function loadNotice() {
+    const snap = await getDoc(doc(db, "meta", "notice"));
+    const data = snap.exists() ? snap.data() : { ko: "", en: "" };
+    document.getElementById("noticeKo").value = data.ko || "";
+    document.getElementById("noticeEn").value = data.en || "";
+  }
+  document.getElementById("saveNoticeBtn").addEventListener("click", async function () {
+    const msg = document.getElementById("noticeSaveMsg");
+    try {
+      await setDoc(doc(db, "meta", "notice"), {
+        ko: document.getElementById("noticeKo").value,
+        en: document.getElementById("noticeEn").value
+      });
+      msg.textContent = window.I18N[lang].saved;
+      msg.className = "save-msg ok";
+    } catch (e) {
+      msg.textContent = window.I18N[lang].saveFail;
+      msg.className = "save-msg err";
+    }
+  });
+
+  // ---------- 샘플 데이터 불러오기 ----------
+  document.getElementById("loadSeedBtn").addEventListener("click", async function () {
+    if (!confirm(window.I18N[lang].loadSeedConfirm)) return;
+    const msg = document.getElementById("seedMsg");
+    try {
+      await setDoc(doc(db, "schedules", "toRange"), window.SEED_DATA.toRange);
+      await setDoc(doc(db, "schedules", "toCity"), window.SEED_DATA.toCity);
+      workingData.toRange = JSON.parse(JSON.stringify(window.SEED_DATA.toRange));
+      workingData.toCity = JSON.parse(JSON.stringify(window.SEED_DATA.toCity));
+      renderRowsEditor();
+      msg.textContent = window.I18N[lang].saved;
+      msg.className = "save-msg ok";
+    } catch (e) {
+      msg.textContent = window.I18N[lang].saveFail;
+      msg.className = "save-msg err";
+    }
+  });
+
+  // ---------- 초기화 ----------
+  async function init() {
+    setLang(lang);
+    await loadDirection(currentDirection);
+    renderDirTabs();
+    renderRowsEditor();
+    await loadNotice();
+  }
+</script>
+</body>
+</html>

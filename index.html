@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>창원 장애인사격대회 셔틀버스 시간표</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <img class="logo" src="assets/logo.png" alt="logo" onerror="this.style.display='none'">
+    <div class="title" data-i18n="pageTitle">창원 장애인사격대회 셔틀버스 시간표</div>
+    <button class="lang-btn" id="langBtn" data-i18n="langBtn">ENG</button>
+  </div>
+
+  <div class="dir-tabs" id="dirTabs"></div>
+  <div class="date-tabs" id="dateTabs"></div>
+
+  <div class="table-wrap" id="tableWrap">
+    <div class="table-empty" data-i18n="loading">불러오는 중...</div>
+  </div>
+
+  <div class="notice hidden" id="notice">
+    <div class="notice-title" data-i18n="noticeSectionTitle">공지사항</div>
+    <div id="noticeText"></div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="admin-entry"><a href="admin.html" data-i18n="adminEntry">관리자 로그인</a></div>
+</div>
+
+<script src="firebase-config.js"></script>
+<script src="shared.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const app = initializeApp(window.FIREBASE_CONFIG);
+  const db = getFirestore(app);
+
+  let lang = localStorage.getItem("lang") || "ko";
+  let currentDirection = "toRange";
+  let currentDate = null;
+  const tableCache = { toRange: null, toCity: null };
+
+  function renderDirTabs() {
+    const el = document.getElementById("dirTabs");
+    el.innerHTML = "";
+    window.DIRECTIONS.forEach(function (d) {
+      const tab = document.createElement("div");
+      tab.className = "dir-tab" + (d.key === currentDirection ? " active" : "");
+      tab.textContent = d.label;
+      tab.addEventListener("click", function () {
+        currentDirection = d.key;
+        currentDate = null;
+        render();
+      });
+      el.appendChild(tab);
+    });
+  }
+
+  function render() {
+    renderDirTabs();
+    const table = tableCache[currentDirection];
+    const dates = window.getDateListFromTable(table);
+    if (!currentDate || dates.indexOf(currentDate) === -1) {
+      currentDate = dates[0] || null;
+    }
+    window.renderDateTabs(document.getElementById("dateTabs"), dates, currentDate, function (d) {
+      currentDate = d;
+      render();
+    });
+    window.renderScheduleRow(document.getElementById("tableWrap"), table, lang, currentDate);
+    window.applyStaticI18n(lang);
+    document.documentElement.lang = lang;
+  }
+
+  function renderNotice(noticeData) {
+    const box = document.getElementById("notice");
+    const text = noticeData ? (noticeData[lang] || "") : "";
+    document.getElementById("noticeText").textContent = text;
+    box.classList.toggle("hidden", !text);
+  }
+
+  let latestNotice = null;
+
+  document.getElementById("langBtn").addEventListener("click", function () {
+    lang = lang === "ko" ? "en" : "ko";
+    localStorage.setItem("lang", lang);
+    render();
+    renderNotice(latestNotice);
+  });
+
+  renderDirTabs();
+
+  onSnapshot(doc(db, "schedules", "toRange"), function (snap) {
+    tableCache.toRange = snap.exists() ? snap.data() : null;
+    render();
+  });
+  onSnapshot(doc(db, "schedules", "toCity"), function (snap) {
+    tableCache.toCity = snap.exists() ? snap.data() : null;
+    render();
+  });
+  onSnapshot(doc(db, "meta", "notice"), function (snap) {
+    latestNotice = snap.exists() ? snap.data() : null;
+    renderNotice(latestNotice);
+  });
+
+  window.applyStaticI18n(lang);
+</script>
+</body>
+</html>
