@@ -12,7 +12,7 @@ window.DIRECTIONS = [
 // 화면에 쓰이는 고정 문구(UI 라벨) 다국어 사전
 window.I18N = {
   ko: {
-    pageTitle: "창원 장애인사격대회 셔틀버스 시간표",
+    pageTitle: "창원 장애인 사격 세계 선수권 대회",
     adminEntry: "관리자 로그인",
     backToMain: "← 참가자 화면으로",
     adminTitle: "관리자 모드",
@@ -45,7 +45,7 @@ window.I18N = {
     langBtn: "ENG"
   },
   en: {
-    pageTitle: "Changwon Para Shooting Championship - Shuttle Bus Schedule",
+    pageTitle: "Changwon 2026 WSPS World Championships",
     adminEntry: "Admin Login",
     backToMain: "← Back to schedule",
     adminTitle: "Admin Mode",
