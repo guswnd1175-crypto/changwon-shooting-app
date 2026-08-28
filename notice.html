@@ -15,7 +15,12 @@
     <button class="lang-btn" id="langBtn" data-i18n="langBtn">ENG</button>
   </div>
 
-  <div class="home-menu" id="homeMenu"></div>
+  <div class="sub-menu" id="subMenu"></div>
+
+  <div class="notice" id="notice">
+    <div class="notice-title" data-i18n="noticeSectionTitle">공지사항</div>
+    <div id="noticeText"></div>
+  </div>
 
   <div class="spacer"></div>
   <div class="admin-entry"><a href="admin.html" data-i18n="adminEntry">관리자 로그인</a></div>
@@ -23,20 +28,23 @@
 
 <script src="firebase-config.js"></script>
 <script src="shared.js"></script>
-<script>
-  let lang = localStorage.getItem("lang") || "ko";
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  function renderHomeMenu() {
-    const el = document.getElementById("homeMenu");
-    el.innerHTML = "";
-    const dict = window.I18N[lang];
-    window.SUB_PAGES.forEach(function (p) {
-      const card = document.createElement("a");
-      card.className = "menu-card";
-      card.href = p.href;
-      card.textContent = dict[p.i18nKey];
-      el.appendChild(card);
-    });
+  const app = initializeApp(window.FIREBASE_CONFIG);
+  const db = getFirestore(app);
+
+  let lang = localStorage.getItem("lang") || "ko";
+  let latestNotice = null;
+
+  async function renderNotice(noticeData) {
+    const koText = noticeData ? (noticeData.ko || "") : "";
+    let text = koText;
+    if (lang === "en" && koText) {
+      text = await window.translateText(koText);
+    }
+    document.getElementById("noticeText").textContent = text;
   }
 
   document.getElementById("langBtn").addEventListener("click", function () {
@@ -44,12 +52,19 @@
     localStorage.setItem("lang", lang);
     window.applyStaticI18n(lang);
     document.documentElement.lang = lang;
-    renderHomeMenu();
+    window.renderSubMenu(document.getElementById("subMenu"), "notice", lang);
+    renderNotice(latestNotice);
+  });
+
+  window.renderSubMenu(document.getElementById("subMenu"), "notice", lang);
+
+  onSnapshot(doc(db, "meta", "notice"), function (snap) {
+    latestNotice = snap.exists() ? snap.data() : null;
+    renderNotice(latestNotice);
   });
 
   window.applyStaticI18n(lang);
   document.documentElement.lang = lang;
-  renderHomeMenu();
 </script>
 </body>
 </html>

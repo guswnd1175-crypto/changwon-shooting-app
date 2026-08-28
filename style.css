@@ -70,6 +70,56 @@ body {
 }
 .lang-btn:hover { background: rgba(255,255,255,0.15); }
 
+/* Sub menu tabs (between header and page content) */
+.sub-menu {
+  display: flex;
+  gap: 6px;
+  margin: 12px 12px 0;
+}
+.sub-menu-tab {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  padding: 9px 6px;
+  background: #f0f0f0;
+  color: #555;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.sub-menu-tab.active { background: var(--accent-light); color: var(--accent); }
+
+/* Home screen menu cards */
+.home-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 28px 16px;
+}
+.menu-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 16px;
+  border-radius: 12px;
+  background: var(--accent-light);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+}
+.menu-card:active { opacity: 0.85; }
+
+/* Board */
+.board-list { display: flex; flex-direction: column; }
+.board-post { padding: 14px 16px; border-top: 1px solid var(--line); }
+.board-post:first-child { border-top: none; }
+.board-post-title { font-weight: bold; color: var(--accent); font-size: 14px; margin-bottom: 6px; }
+.board-post-content { font-size: 14px; white-space: pre-wrap; line-height: 1.5; }
+.board-empty { padding: 20px; text-align: center; color: #999; font-size: 13px; }
+
 /* Direction tabs */
 .dir-tabs {
   display: flex;
@@ -314,6 +364,10 @@ body {
   font-family: inherit;
   resize: vertical;
 }
+
+.board-post-card { margin: 8px 12px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fafafa; }
+.board-post-card input.field-text { width: 100%; margin-bottom: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 4px; font-size: 13px; font-weight: bold; }
+.board-post-card textarea.field-textarea { width: 100%; min-height: 60px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; font-family: inherit; resize: vertical; margin-bottom: 6px; }
 
 .save-bar { margin: 16px 12px 24px; display: flex; flex-direction: column; gap: 10px; }
 .save-msg { text-align: center; font-size: 12px; min-height: 16px; }

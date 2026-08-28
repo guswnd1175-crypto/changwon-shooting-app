@@ -42,7 +42,17 @@ window.I18N = {
     toneRed: "빨강 강조",
     toneBlue: "파랑 강조",
     loading: "불러오는 중...",
-    langBtn: "ENG"
+    langBtn: "ENG",
+    menuSchedule: "셔틀버스 시간표",
+    menuNotice: "공지사항",
+    menuBoard: "게시판",
+    backToHome: "← 홈으로",
+    boardEmpty: "게시글이 없습니다.",
+    editBoardTitle: "게시판 관리",
+    addPost: "+ 게시글 추가",
+    removePost: "게시글 삭제",
+    postTitleLabel: "제목",
+    postContentLabel: "내용"
   },
   en: {
     pageTitle: "Changwon 2026 WSPS World Championships",
@@ -75,7 +85,17 @@ window.I18N = {
     toneRed: "Red highlight",
     toneBlue: "Blue highlight",
     loading: "Loading...",
-    langBtn: "KOR"
+    langBtn: "KOR",
+    menuSchedule: "Shuttle Bus Schedule",
+    menuNotice: "Notice",
+    menuBoard: "Board",
+    backToHome: "← Back to home",
+    boardEmpty: "No posts yet.",
+    editBoardTitle: "Manage Board",
+    addPost: "+ Add post",
+    removePost: "Remove post",
+    postTitleLabel: "Title",
+    postContentLabel: "Content"
   }
 };
 
@@ -261,4 +281,53 @@ window.renderDateTabs = function (containerEl, dates, selectedDate, onSelect, la
 window.getDateListFromTable = function (tableData) {
   if (!tableData || !tableData.rows) return [];
   return tableData.rows.map(function (r) { return r.date; });
+};
+
+// 홈 화면의 3가지 메뉴 = 각 하위 페이지의 소메뉴 탭 정의
+window.SUB_PAGES = [
+  { key: "schedule", href: "schedule.html", i18nKey: "menuSchedule" },
+  { key: "notice", href: "notice.html", i18nKey: "menuNotice" },
+  { key: "board", href: "board.html", i18nKey: "menuBoard" }
+];
+
+// 제목과 방향 탭(또는 본문) 사이에 들어가는 소메뉴 탭 렌더링
+window.renderSubMenu = function (containerEl, activeKey, lang) {
+  containerEl.innerHTML = "";
+  var dict = window.I18N[lang] || window.I18N.ko;
+  window.SUB_PAGES.forEach(function (p) {
+    var tab = document.createElement("a");
+    tab.className = "sub-menu-tab" + (p.key === activeKey ? " active" : "");
+    tab.href = p.href;
+    tab.textContent = dict[p.i18nKey] || p.key;
+    containerEl.appendChild(tab);
+  });
+};
+
+// 게시판 글 목록 렌더링. posts = [{ title, content }]
+window.renderBoardList = function (containerEl, posts, lang) {
+  containerEl.innerHTML = "";
+  var dict = window.I18N[lang] || window.I18N.ko;
+  if (!posts || posts.length === 0) {
+    var empty = document.createElement("div");
+    empty.className = "board-empty";
+    empty.textContent = dict.boardEmpty;
+    containerEl.appendChild(empty);
+    return;
+  }
+  var list = document.createElement("div");
+  list.className = "board-list";
+  posts.forEach(function (post) {
+    var item = document.createElement("div");
+    item.className = "board-post";
+    var titleEl = document.createElement("div");
+    titleEl.className = "board-post-title";
+    titleEl.textContent = post.title || "";
+    var contentEl = document.createElement("div");
+    contentEl.className = "board-post-content";
+    contentEl.textContent = post.content || "";
+    item.appendChild(titleEl);
+    item.appendChild(contentEl);
+    list.appendChild(item);
+  });
+  containerEl.appendChild(list);
 };

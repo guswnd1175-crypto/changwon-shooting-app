@@ -15,7 +15,11 @@
     <button class="lang-btn" id="langBtn" data-i18n="langBtn">ENG</button>
   </div>
 
-  <div class="home-menu" id="homeMenu"></div>
+  <div class="sub-menu" id="subMenu"></div>
+
+  <div class="table-wrap" id="boardWrap">
+    <div class="table-empty" data-i18n="loading">불러오는 중...</div>
+  </div>
 
   <div class="spacer"></div>
   <div class="admin-entry"><a href="admin.html" data-i18n="adminEntry">관리자 로그인</a></div>
@@ -23,20 +27,28 @@
 
 <script src="firebase-config.js"></script>
 <script src="shared.js"></script>
-<script>
-  let lang = localStorage.getItem("lang") || "ko";
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  function renderHomeMenu() {
-    const el = document.getElementById("homeMenu");
-    el.innerHTML = "";
-    const dict = window.I18N[lang];
-    window.SUB_PAGES.forEach(function (p) {
-      const card = document.createElement("a");
-      card.className = "menu-card";
-      card.href = p.href;
-      card.textContent = dict[p.i18nKey];
-      el.appendChild(card);
-    });
+  const app = initializeApp(window.FIREBASE_CONFIG);
+  const db = getFirestore(app);
+
+  let lang = localStorage.getItem("lang") || "ko";
+  let latestPosts = [];
+
+  async function renderBoard() {
+    const wrap = document.getElementById("boardWrap");
+    let posts = latestPosts;
+    if (lang === "en" && posts.length) {
+      posts = await Promise.all(posts.map(async function (p) {
+        return {
+          title: p.title ? await window.translateText(p.title) : "",
+          content: p.content ? await window.translateText(p.content) : ""
+        };
+      }));
+    }
+    window.renderBoardList(wrap, posts, lang);
   }
 
   document.getElementById("langBtn").addEventListener("click", function () {
@@ -44,12 +56,19 @@
     localStorage.setItem("lang", lang);
     window.applyStaticI18n(lang);
     document.documentElement.lang = lang;
-    renderHomeMenu();
+    window.renderSubMenu(document.getElementById("subMenu"), "board", lang);
+    renderBoard();
+  });
+
+  window.renderSubMenu(document.getElementById("subMenu"), "board", lang);
+
+  onSnapshot(doc(db, "meta", "board"), function (snap) {
+    latestPosts = (snap.exists() && snap.data().posts) ? snap.data().posts : [];
+    renderBoard();
   });
 
   window.applyStaticI18n(lang);
   document.documentElement.lang = lang;
-  renderHomeMenu();
 </script>
 </body>
 </html>

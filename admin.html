@@ -55,6 +55,14 @@
       <div class="save-msg" id="noticeSaveMsg"></div>
     </div>
 
+    <div class="section-title" data-i18n="editBoardTitle">게시판 관리</div>
+    <div id="boardEditor"></div>
+    <div class="save-bar">
+      <button class="btn outline small" id="addPostBtn" data-i18n="addPost">+ 게시글 추가</button>
+      <button class="btn" id="saveBoardBtn" data-i18n="saveBtn">저장 (실시간 반영)</button>
+      <div class="save-msg" id="boardSaveMsg"></div>
+    </div>
+
     <div class="section-title">초기 데이터</div>
     <div class="save-bar">
       <button class="btn danger small" id="loadSeedBtn" data-i18n="loadSeedBtn">샘플 시간표 불러오기 (최초 1회, 기존 데이터 덮어씀)</button>
@@ -98,6 +106,7 @@
   document.getElementById("langBtnEdit").addEventListener("click", function () {
     setLang(lang === "ko" ? "en" : "ko");
     renderRowsEditor();
+    renderBoardEditor();
   });
 
   // ---------- 로그인 ----------
@@ -306,6 +315,63 @@
     }
   });
 
+  // ---------- 게시판 ----------
+  let boardPosts = [];
+  function renderBoardEditor() {
+    const container = document.getElementById("boardEditor");
+    container.innerHTML = "";
+    boardPosts.forEach(function (post, idx) {
+      const card = document.createElement("div");
+      card.className = "board-post-card";
+
+      const titleInput = document.createElement("input");
+      titleInput.type = "text";
+      titleInput.className = "field-text";
+      titleInput.placeholder = window.I18N[lang].postTitleLabel;
+      titleInput.value = post.title || "";
+      titleInput.addEventListener("input", function () { post.title = this.value; });
+      card.appendChild(titleInput);
+
+      const contentArea = document.createElement("textarea");
+      contentArea.className = "field-textarea";
+      contentArea.placeholder = window.I18N[lang].postContentLabel;
+      contentArea.value = post.content || "";
+      contentArea.addEventListener("input", function () { post.content = this.value; });
+      card.appendChild(contentArea);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "link-btn";
+      removeBtn.textContent = window.I18N[lang].removePost;
+      removeBtn.addEventListener("click", function () {
+        boardPosts.splice(idx, 1);
+        renderBoardEditor();
+      });
+      card.appendChild(removeBtn);
+
+      container.appendChild(card);
+    });
+  }
+  document.getElementById("addPostBtn").addEventListener("click", function () {
+    boardPosts.push({ title: "", content: "" });
+    renderBoardEditor();
+  });
+  async function loadBoard() {
+    const snap = await getDoc(doc(db, "meta", "board"));
+    boardPosts = (snap.exists() && snap.data().posts) ? snap.data().posts : [];
+    renderBoardEditor();
+  }
+  document.getElementById("saveBoardBtn").addEventListener("click", async function () {
+    const msg = document.getElementById("boardSaveMsg");
+    try {
+      await setDoc(doc(db, "meta", "board"), { posts: boardPosts });
+      msg.textContent = window.I18N[lang].saved;
+      msg.className = "save-msg ok";
+    } catch (e) {
+      msg.textContent = window.I18N[lang].saveFail;
+      msg.className = "save-msg err";
+    }
+  });
+
   // ---------- 샘플 데이터 불러오기 ----------
   document.getElementById("loadSeedBtn").addEventListener("click", async function () {
     if (!confirm(window.I18N[lang].loadSeedConfirm)) return;
@@ -331,6 +397,7 @@
     renderDirTabs();
     renderRowsEditor();
     await loadNotice();
+    await loadBoard();
   }
 </script>
 </body>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>창원 장애인 사격 세계 선수권 대회</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <img class="logo" src="assets/logo.png" alt="logo" onerror="this.style.display='none'">
+    <div class="title app-title" data-i18n="pageTitle">창원 장애인 사격 세계 선수권 대회</div>
+    <button class="lang-btn" id="langBtn" data-i18n="langBtn">ENG</button>
+  </div>
+
+  <div class="sub-menu" id="subMenu"></div>
+
+  <div class="dir-tabs" id="dirTabs"></div>
+  <div class="date-tabs" id="dateTabs"></div>
+
+  <div class="table-wrap" id="tableWrap">
+    <div class="table-empty" data-i18n="loading">불러오는 중...</div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="admin-entry"><a href="admin.html" data-i18n="adminEntry">관리자 로그인</a></div>
+</div>
+
+<script src="firebase-config.js"></script>
+<script src="shared.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const app = initializeApp(window.FIREBASE_CONFIG);
+  const db = getFirestore(app);
+
+  let lang = localStorage.getItem("lang") || "ko";
+  let currentDirection = "toRange";
+  let currentDate = null;
+  const tableCache = { toRange: null, toCity: null };
+
+  function renderDirTabs() {
+    const el = document.getElementById("dirTabs");
+    el.innerHTML = "";
+    window.DIRECTIONS.forEach(function (d) {
+      const tab = document.createElement("div");
+      tab.className = "dir-tab" + (d.key === currentDirection ? " active" : "");
+      tab.textContent = d.label;
+      tab.addEventListener("click", function () {
+        currentDirection = d.key;
+        currentDate = null;
+        render();
+      });
+      el.appendChild(tab);
+    });
+  }
+
+  function render() {
+    renderDirTabs();
+    window.renderSubMenu(document.getElementById("subMenu"), "schedule", lang);
+    const table = tableCache[currentDirection];
+    const dates = window.getDateListFromTable(table);
+    if (!currentDate || dates.indexOf(currentDate) === -1) {
+      currentDate = dates[0] || null;
+    }
+    window.renderDateTabs(document.getElementById("dateTabs"), dates, currentDate, function (d) {
+      currentDate = d;
+      render();
+    }, lang);
+    window.renderScheduleRow(document.getElementById("tableWrap"), table, lang, currentDate);
+    window.applyStaticI18n(lang);
+    document.documentElement.lang = lang;
+  }
+
+  document.getElementById("langBtn").addEventListener("click", function () {
+    lang = lang === "ko" ? "en" : "ko";
+    localStorage.setItem("lang", lang);
+    render();
+  });
+
+  renderDirTabs();
+  window.renderSubMenu(document.getElementById("subMenu"), "schedule", lang);
+
+  onSnapshot(doc(db, "schedules", "toRange"), function (snap) {
+    tableCache.toRange = window.normalizeTable(snap.exists() ? snap.data() : null);
+    render();
+  });
+  onSnapshot(doc(db, "schedules", "toCity"), function (snap) {
+    tableCache.toCity = window.normalizeTable(snap.exists() ? snap.data() : null);
+    render();
+  });
+
+  window.applyStaticI18n(lang);
+</script>
+</body>
+</html>
