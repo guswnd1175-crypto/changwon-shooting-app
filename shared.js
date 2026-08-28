@@ -122,6 +122,15 @@ window.toneClass = function (tone) {
   return "tone-normal";
 };
 
+// 출발지 라벨(Mercure / Grand City)에 따라 다른 색상 class를 부여 (빨강/파랑 강조 행은 건드리지 않음)
+window.locationClass = function (label, tone) {
+  if (tone === "red" || tone === "blue") return "";
+  if (!label) return "";
+  if (/mercure/i.test(label)) return "loc-mercure";
+  if (/grand city/i.test(label)) return "loc-grandcity";
+  return "";
+};
+
 /**
  * 표 데이터(header + rows)를 컨테이너에 렌더링.
  * tableData = { header: Block[], rows: [{ date: "09.04", blocks: Block[] }, ...] }
@@ -167,7 +176,7 @@ window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate)
     var item = document.createElement("div");
     item.className = "schedule-item " + window.toneClass(block.tone);
     var labelEl = document.createElement("div");
-    labelEl.className = "item-label";
+    labelEl.className = "item-label " + window.locationClass(label, block.tone);
     labelEl.textContent = label;
     var valueEl = document.createElement("div");
     valueEl.className = "item-value";
@@ -179,12 +188,12 @@ window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate)
 };
 
 // 날짜 탭 렌더링. onSelect(date) 콜백 호출
-window.renderDateTabs = function (containerEl, dates, selectedDate, onSelect) {
+window.renderDateTabs = function (containerEl, dates, selectedDate, onSelect, lang) {
   containerEl.innerHTML = "";
   dates.forEach(function (d) {
     var tab = document.createElement("div");
     tab.className = "date-tab" + (d === selectedDate ? " active" : "");
-    tab.textContent = d;
+    tab.textContent = window.formatDateWithWeekday(d, lang) || d;
     tab.addEventListener("click", function () { onSelect(d); });
     containerEl.appendChild(tab);
   });

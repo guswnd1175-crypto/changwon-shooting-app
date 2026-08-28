@@ -70,7 +70,7 @@
     window.renderDateTabs(document.getElementById("dateTabs"), dates, currentDate, function (d) {
       currentDate = d;
       render();
-    });
+    }, lang);
     window.renderScheduleRow(document.getElementById("tableWrap"), table, lang, currentDate);
     window.applyStaticI18n(lang);
     document.documentElement.lang = lang;
