@@ -3,9 +3,6 @@
  * (일반 <script> 로 로드되는 classic script 입니다. type="module" 아님)
  */
 
-// 총 컬럼 수 (표 한 줄이 채울 수 있는 최대 폭의 기준값. block.span 계산에 사용)
-window.TOTAL_COLS = 6;
-
 // 방향(direction) 두 가지 고정값
 window.DIRECTIONS = [
   { key: "toRange", label: "Grand City / Mercure → RANGE" },
@@ -39,7 +36,10 @@ window.I18N = {
     dateLabel: "날짜",
     textKo: "한글 텍스트",
     textEn: "영문 텍스트",
-    span: "칸 너비",
+    titleKo: "제목(한글)",
+    titleEn: "제목(영문)",
+    timeKo: "시간(한글)",
+    timeEn: "시간(영문)",
     tone: "색상",
     toneNormal: "기본",
     toneRed: "빨강 강조",
@@ -72,7 +72,10 @@ window.I18N = {
     dateLabel: "Date",
     textKo: "Korean text",
     textEn: "English text",
-    span: "Cell width",
+    titleKo: "Title (KO)",
+    titleEn: "Title (EN)",
+    timeKo: "Time (KO)",
+    timeEn: "Time (EN)",
     tone: "Color",
     toneNormal: "Normal",
     toneRed: "Red highlight",
@@ -132,9 +135,47 @@ window.locationClass = function (label, tone) {
 };
 
 /**
- * 표 데이터(header + rows)를 컨테이너에 렌더링.
- * tableData = { header: Block[], rows: [{ date: "09.04", blocks: Block[] }, ...] }
- * Block = { ko: "7:30", en: "7:30", span: 1, tone: "normal" }
+ * 예전 포맷(header + span 매칭)으로 저장된 표 데이터를 새 포맷으로 변환.
+ * 새 포맷: { rows: [{ date: "09.04", blocks: Block[] }, ...] }
+ * Block = { titleKo, titleEn, timeKo, timeEn, tone } (제목/시간을 각 칸에 직접 저장)
+ * 이미 새 포맷이면(= header 필드가 없으면) 그대로 반환.
+ */
+window.normalizeTable = function (table) {
+  if (!table) return null;
+  if (!table.header || !table.header.length) {
+    return { rows: table.rows || [] };
+  }
+  var headerSlotsKo = [], headerSlotsEn = [];
+  table.header.forEach(function (block) {
+    var span = block.span || 1;
+    for (var i = 0; i < span; i++) {
+      headerSlotsKo.push(block.ko || "");
+      headerSlotsEn.push(block.en || "");
+    }
+  });
+  function uniqueJoin(arr) {
+    var seen = [];
+    arr.forEach(function (v) { if (v && seen.indexOf(v) === -1) seen.push(v); });
+    return seen.join(" / ");
+  }
+  var newRows = (table.rows || []).map(function (row) {
+    var offset = 0;
+    var newBlocks = (row.blocks || []).map(function (block) {
+      var span = block.span || 1;
+      var titleKo = uniqueJoin(headerSlotsKo.slice(offset, offset + span));
+      var titleEn = uniqueJoin(headerSlotsEn.slice(offset, offset + span));
+      offset += span;
+      return { titleKo: titleKo, titleEn: titleEn, timeKo: block.ko || "", timeEn: block.en || "", tone: block.tone || "normal" };
+    });
+    return { date: row.date, blocks: newBlocks };
+  });
+  return { rows: newRows };
+};
+
+/**
+ * 표 데이터를 컨테이너에 렌더링.
+ * tableData = { rows: [{ date: "09.04", blocks: Block[] }, ...] }
+ * Block = { titleKo: "Mercure", titleEn: "Mercure", timeKo: "7:30", timeEn: "7:30", tone: "normal" }
  * lang = "ko" | "en"
  * selectedDate = 현재 선택된 날짜 라벨 (해당 행만 렌더링)
  */
@@ -151,36 +192,24 @@ window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate)
     return;
   }
 
-  // 헤더의 각 칸(span 만큼)을 컬럼 슬롯 배열로 펼쳐서, 본문 블록의 span 위치와 매칭시킴
-  var headerSlots = [];
-  (tableData.header || []).forEach(function (block) {
-    var span = block.span || 1;
-    var label = (lang === "en" ? block.en : block.ko) || "";
-    for (var i = 0; i < span; i++) headerSlots.push(label);
-  });
-
   var list = document.createElement("div");
   list.className = "schedule-list";
-  var offset = 0;
   (row.blocks || []).forEach(function (block) {
-    var span = block.span || 1;
-    var covered = headerSlots.slice(offset, offset + span);
-    offset += span;
-    var seen = [];
-    covered.forEach(function (v) { if (v && seen.indexOf(v) === -1) seen.push(v); });
-    list.appendChild(makeItem(seen.join(" / "), block, lang));
+    var label = (lang === "en" ? block.titleEn : block.titleKo) || "";
+    var value = (lang === "en" ? block.timeEn : block.timeKo) || "";
+    list.appendChild(makeItem(label, value, block.tone));
   });
   containerEl.appendChild(list);
 
-  function makeItem(label, block, lang) {
+  function makeItem(label, value, tone) {
     var item = document.createElement("div");
-    item.className = "schedule-item " + window.toneClass(block.tone);
+    item.className = "schedule-item " + window.toneClass(tone);
     var labelEl = document.createElement("div");
-    labelEl.className = "item-label " + window.locationClass(label, block.tone);
+    labelEl.className = "item-label " + window.locationClass(label, tone);
     labelEl.textContent = label;
     var valueEl = document.createElement("div");
     valueEl.className = "item-value";
-    valueEl.textContent = (lang === "en" ? block.en : block.ko) || "";
+    valueEl.textContent = value;
     item.appendChild(labelEl);
     item.appendChild(valueEl);
     return item;

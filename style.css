@@ -260,22 +260,16 @@ body {
   gap: 6px;
   overflow-x: auto;
 }
-.block-card .field-ko, .block-card .field-en {
-  flex: 1 1 90px;
-  min-width: 70px;
+.block-card .field-text {
+  flex: 1 1 80px;
+  min-width: 60px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 4px;
   font-size: 12px;
 }
-.block-card .field-span {
-  flex: 0 0 auto;
-  width: 44px;
-  padding: 6px 4px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-size: 12px;
-  text-align: center;
+.block-card .field-text.field-time {
+  border-left: 2px solid var(--accent);
 }
 .block-card .field-tone {
   flex: 0 0 auto;

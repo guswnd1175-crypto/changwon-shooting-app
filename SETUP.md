@@ -52,6 +52,6 @@
 
 ## 데이터 구조 참고
 
-- `schedules/toRange`, `schedules/toCity` 문서: 표 데이터 (header + 날짜별 rows, 각 row는 여러 개의 block으로 구성. block = 한글/영문 텍스트 + 칸 너비(span) + 색상(tone))
+- `schedules/toRange`, `schedules/toCity` 문서: 표 데이터 (날짜별 rows, 각 row는 여러 개의 block으로 구성. block = 제목(한글/영문) + 시간(한글/영문) + 색상(tone))
 - `meta/notice` 문서: 공지사항 (한글/영문)
-- 관리자 화면에서 칸(block) 단위로 텍스트/너비/색상을 자유롭게 추가·삭제·수정 가능 (09.09처럼 특수 안내가 필요한 날짜도 색상 강조 + 너비 조정으로 표현 가능)
+- 관리자 화면에서 날짜 탭을 선택한 뒤, 칸(block) 단위로 제목/시간/색상을 한 줄에서 자유롭게 추가·삭제·수정 가능 (09.09처럼 특수 안내가 필요한 날짜도 색상 강조로 표현 가능)

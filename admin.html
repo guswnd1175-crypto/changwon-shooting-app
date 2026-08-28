@@ -38,7 +38,6 @@
     <div class="dir-tabs" id="dirTabs"></div>
 
     <div class="section-title" data-i18n="editTableTitle">시간표 수정</div>
-    <div id="headerEditor"></div>
     <div id="rowsEditor"></div>
     <div class="save-bar">
       <button class="btn outline small" id="addRowBtn" data-i18n="addRow">+ 날짜(행) 추가</button>
@@ -143,38 +142,45 @@
   async function loadDirection(direction) {
     if (workingData[direction]) return;
     const snap = await getDoc(doc(db, "schedules", direction));
-    workingData[direction] = snap.exists() ? snap.data() : { header: [], rows: [] };
+    workingData[direction] = window.normalizeTable(snap.exists() ? snap.data() : { rows: [] });
   }
 
-  // ---------- 헤더/행 에디터 ----------
+  // ---------- 행 에디터 ----------
   function blockCard(block, onRemove) {
     const card = document.createElement("div");
     card.className = "block-card";
 
-    const koInput = document.createElement("input");
-    koInput.type = "text";
-    koInput.className = "field-ko";
-    koInput.placeholder = window.I18N[lang].textKo;
-    koInput.value = block.ko || "";
-    koInput.addEventListener("input", function () { block.ko = this.value; });
-    card.appendChild(koInput);
+    const titleKoInput = document.createElement("input");
+    titleKoInput.type = "text";
+    titleKoInput.className = "field-text";
+    titleKoInput.placeholder = window.I18N[lang].titleKo;
+    titleKoInput.value = block.titleKo || "";
+    titleKoInput.addEventListener("input", function () { block.titleKo = this.value; });
+    card.appendChild(titleKoInput);
 
-    const enInput = document.createElement("input");
-    enInput.type = "text";
-    enInput.className = "field-en";
-    enInput.placeholder = window.I18N[lang].textEn;
-    enInput.value = block.en || "";
-    enInput.addEventListener("input", function () { block.en = this.value; });
-    card.appendChild(enInput);
+    const titleEnInput = document.createElement("input");
+    titleEnInput.type = "text";
+    titleEnInput.className = "field-text";
+    titleEnInput.placeholder = window.I18N[lang].titleEn;
+    titleEnInput.value = block.titleEn || "";
+    titleEnInput.addEventListener("input", function () { block.titleEn = this.value; });
+    card.appendChild(titleEnInput);
 
-    const spanInput = document.createElement("input");
-    spanInput.type = "number";
-    spanInput.min = "1";
-    spanInput.className = "field-span";
-    spanInput.title = window.I18N[lang].span;
-    spanInput.value = block.span || 1;
-    spanInput.addEventListener("input", function () { block.span = parseInt(this.value, 10) || 1; });
-    card.appendChild(spanInput);
+    const timeKoInput = document.createElement("input");
+    timeKoInput.type = "text";
+    timeKoInput.className = "field-text field-time";
+    timeKoInput.placeholder = window.I18N[lang].timeKo;
+    timeKoInput.value = block.timeKo || "";
+    timeKoInput.addEventListener("input", function () { block.timeKo = this.value; });
+    card.appendChild(timeKoInput);
+
+    const timeEnInput = document.createElement("input");
+    timeEnInput.type = "text";
+    timeEnInput.className = "field-text";
+    timeEnInput.placeholder = window.I18N[lang].timeEn;
+    timeEnInput.value = block.timeEn || "";
+    timeEnInput.addEventListener("input", function () { block.timeEn = this.value; });
+    card.appendChild(timeEnInput);
 
     const toneSelect = document.createElement("select");
     toneSelect.className = "field-tone";
@@ -198,39 +204,7 @@
     return card;
   }
 
-  function renderHeaderEditor() {
-    const container = document.getElementById("headerEditor");
-    container.innerHTML = "";
-    const table = workingData[currentDirection];
-    if (!table) return;
-    const card = document.createElement("div");
-    card.className = "admin-row-card";
-    const title = document.createElement("div");
-    title.style.fontSize = "11px";
-    title.style.color = "#777";
-    title.style.marginBottom = "6px";
-    title.textContent = "Header";
-    card.appendChild(title);
-    (table.header || []).forEach(function (block, idx) {
-      card.appendChild(blockCard(block, function () {
-        table.header.splice(idx, 1);
-        renderHeaderEditor();
-      }));
-    });
-    const addBtn = document.createElement("button");
-    addBtn.className = "btn outline small";
-    addBtn.textContent = window.I18N[lang].addBlock;
-    addBtn.addEventListener("click", function () {
-      table.header = table.header || [];
-      table.header.push({ ko: "", en: "", span: 1, tone: "normal" });
-      renderHeaderEditor();
-    });
-    card.appendChild(addBtn);
-    container.appendChild(card);
-  }
-
   function renderRowsEditor() {
-    renderHeaderEditor();
     const container = document.getElementById("rowsEditor");
     container.innerHTML = "";
     const table = workingData[currentDirection];
@@ -292,7 +266,7 @@
     addBlockBtn.textContent = window.I18N[lang].addBlock;
     addBlockBtn.addEventListener("click", function () {
       row.blocks = row.blocks || [];
-      row.blocks.push({ ko: "", en: "", span: 1, tone: "normal" });
+      row.blocks.push({ titleKo: "", titleEn: "", timeKo: "", timeEn: "", tone: "normal" });
       renderRowsEditor();
     });
     const removeRowBtn = document.createElement("button");

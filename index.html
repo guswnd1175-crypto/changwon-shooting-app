@@ -95,11 +95,11 @@
   renderDirTabs();
 
   onSnapshot(doc(db, "schedules", "toRange"), function (snap) {
-    tableCache.toRange = snap.exists() ? snap.data() : null;
+    tableCache.toRange = window.normalizeTable(snap.exists() ? snap.data() : null);
     render();
   });
   onSnapshot(doc(db, "schedules", "toCity"), function (snap) {
-    tableCache.toCity = snap.exists() ? snap.data() : null;
+    tableCache.toCity = window.normalizeTable(snap.exists() ? snap.data() : null);
     render();
   });
   onSnapshot(doc(db, "meta", "notice"), function (snap) {
