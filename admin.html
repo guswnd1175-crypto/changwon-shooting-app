@@ -47,10 +47,8 @@
 
     <div class="section-title" data-i18n="editNoticeTitle">공지사항 수정</div>
     <div class="admin-row-card notice-edit">
-      <label data-i18n="textKo">한글 텍스트</label>
+      <label data-i18n="noticeInputLabel">공지사항 내용 (한글, 영문은 자동 번역됨)</label>
       <textarea id="noticeKo"></textarea>
-      <label data-i18n="textEn" style="margin-top:8px;">영문 텍스트</label>
-      <textarea id="noticeEn"></textarea>
     </div>
     <div class="save-bar">
       <button class="btn" id="saveNoticeBtn" data-i18n="saveBtn">저장 (실시간 반영)</button>
@@ -150,37 +148,21 @@
     const card = document.createElement("div");
     card.className = "block-card";
 
-    const titleKoInput = document.createElement("input");
-    titleKoInput.type = "text";
-    titleKoInput.className = "field-text";
-    titleKoInput.placeholder = window.I18N[lang].titleKo;
-    titleKoInput.value = block.titleKo || "";
-    titleKoInput.addEventListener("input", function () { block.titleKo = this.value; });
-    card.appendChild(titleKoInput);
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.className = "field-text";
+    titleInput.placeholder = window.I18N[lang].title;
+    titleInput.value = block.title || "";
+    titleInput.addEventListener("input", function () { block.title = this.value; });
+    card.appendChild(titleInput);
 
-    const titleEnInput = document.createElement("input");
-    titleEnInput.type = "text";
-    titleEnInput.className = "field-text";
-    titleEnInput.placeholder = window.I18N[lang].titleEn;
-    titleEnInput.value = block.titleEn || "";
-    titleEnInput.addEventListener("input", function () { block.titleEn = this.value; });
-    card.appendChild(titleEnInput);
-
-    const timeKoInput = document.createElement("input");
-    timeKoInput.type = "text";
-    timeKoInput.className = "field-text field-time";
-    timeKoInput.placeholder = window.I18N[lang].timeKo;
-    timeKoInput.value = block.timeKo || "";
-    timeKoInput.addEventListener("input", function () { block.timeKo = this.value; });
-    card.appendChild(timeKoInput);
-
-    const timeEnInput = document.createElement("input");
-    timeEnInput.type = "text";
-    timeEnInput.className = "field-text";
-    timeEnInput.placeholder = window.I18N[lang].timeEn;
-    timeEnInput.value = block.timeEn || "";
-    timeEnInput.addEventListener("input", function () { block.timeEn = this.value; });
-    card.appendChild(timeEnInput);
+    const timeInput = document.createElement("input");
+    timeInput.type = "text";
+    timeInput.className = "field-text field-time";
+    timeInput.placeholder = window.I18N[lang].time;
+    timeInput.value = block.time || "";
+    timeInput.addEventListener("input", function () { block.time = this.value; });
+    card.appendChild(timeInput);
 
     const toneSelect = document.createElement("select");
     toneSelect.className = "field-tone";
@@ -266,7 +248,7 @@
     addBlockBtn.textContent = window.I18N[lang].addBlock;
     addBlockBtn.addEventListener("click", function () {
       row.blocks = row.blocks || [];
-      row.blocks.push({ titleKo: "", titleEn: "", timeKo: "", timeEn: "", tone: "normal" });
+      row.blocks.push({ title: "", time: "", tone: "normal" });
       renderRowsEditor();
     });
     const removeRowBtn = document.createElement("button");
@@ -307,16 +289,14 @@
   // ---------- 공지사항 ----------
   async function loadNotice() {
     const snap = await getDoc(doc(db, "meta", "notice"));
-    const data = snap.exists() ? snap.data() : { ko: "", en: "" };
+    const data = snap.exists() ? snap.data() : { ko: "" };
     document.getElementById("noticeKo").value = data.ko || "";
-    document.getElementById("noticeEn").value = data.en || "";
   }
   document.getElementById("saveNoticeBtn").addEventListener("click", async function () {
     const msg = document.getElementById("noticeSaveMsg");
     try {
       await setDoc(doc(db, "meta", "notice"), {
-        ko: document.getElementById("noticeKo").value,
-        en: document.getElementById("noticeEn").value
+        ko: document.getElementById("noticeKo").value
       });
       msg.textContent = window.I18N[lang].saved;
       msg.className = "save-msg ok";

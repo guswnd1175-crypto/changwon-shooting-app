@@ -4,13 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>창원 장애인사격대회 셔틀버스 시간표</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
   <div class="header">
     <img class="logo" src="assets/logo.png" alt="logo" onerror="this.style.display='none'">
-    <div class="title" data-i18n="pageTitle">창원 장애인사격대회 셔틀버스 시간표</div>
+    <div class="title app-title" data-i18n="pageTitle">창원 장애인사격대회 셔틀버스 시간표</div>
     <button class="lang-btn" id="langBtn" data-i18n="langBtn">ENG</button>
   </div>
 
@@ -21,7 +22,7 @@
     <div class="table-empty" data-i18n="loading">불러오는 중...</div>
   </div>
 
-  <div class="notice hidden" id="notice">
+  <div class="notice" id="notice">
     <div class="notice-title" data-i18n="noticeSectionTitle">공지사항</div>
     <div id="noticeText"></div>
   </div>
@@ -76,11 +77,13 @@
     document.documentElement.lang = lang;
   }
 
-  function renderNotice(noticeData) {
-    const box = document.getElementById("notice");
-    const text = noticeData ? (noticeData[lang] || "") : "";
+  async function renderNotice(noticeData) {
+    const koText = noticeData ? (noticeData.ko || "") : "";
+    let text = koText;
+    if (lang === "en" && koText) {
+      text = await window.translateText(koText);
+    }
     document.getElementById("noticeText").textContent = text;
-    box.classList.toggle("hidden", !text);
   }
 
   let latestNotice = null;

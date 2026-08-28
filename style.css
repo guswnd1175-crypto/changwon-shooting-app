@@ -57,6 +57,11 @@ body {
   line-height: 1.3;
   text-align: center;
 }
+.header .title.app-title {
+  font-family: 'Pretendard', "Malgun Gothic", "Apple SD Gothic Neo", -apple-system, sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+}
 .lang-btn {
   border: 1px solid #fff;
   background: transparent;

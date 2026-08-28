@@ -34,12 +34,9 @@ window.I18N = {
     loadSeedBtn: "샘플 시간표 불러오기 (최초 1회, 기존 데이터 덮어씀)",
     loadSeedConfirm: "현재 시간표 데이터를 사진 속 초기값으로 덮어씁니다. 계속할까요?",
     dateLabel: "날짜",
-    textKo: "한글 텍스트",
-    textEn: "영문 텍스트",
-    titleKo: "제목(한글)",
-    titleEn: "제목(영문)",
-    timeKo: "시간(한글)",
-    timeEn: "시간(영문)",
+    noticeInputLabel: "공지사항 내용 (한글, 영문은 자동 번역됨)",
+    title: "제목",
+    time: "시간",
     tone: "색상",
     toneNormal: "기본",
     toneRed: "빨강 강조",
@@ -70,12 +67,9 @@ window.I18N = {
     loadSeedBtn: "Load sample schedule (one-time, overwrites current data)",
     loadSeedConfirm: "This will overwrite the current schedule with the initial photo data. Continue?",
     dateLabel: "Date",
-    textKo: "Korean text",
-    textEn: "English text",
-    titleKo: "Title (KO)",
-    titleEn: "Title (EN)",
-    timeKo: "Time (KO)",
-    timeEn: "Time (EN)",
+    noticeInputLabel: "Notice content (Korean; English is auto-translated)",
+    title: "Title",
+    time: "Time",
     tone: "Color",
     toneNormal: "Normal",
     toneRed: "Red highlight",
@@ -135,48 +129,85 @@ window.locationClass = function (label, tone) {
 };
 
 /**
- * 예전 포맷(header + span 매칭)으로 저장된 표 데이터를 새 포맷으로 변환.
- * 새 포맷: { rows: [{ date: "09.04", blocks: Block[] }, ...] }
- * Block = { titleKo, titleEn, timeKo, timeEn, tone } (제목/시간을 각 칸에 직접 저장)
- * 이미 새 포맷이면(= header 필드가 없으면) 그대로 반환.
+ * 예전 포맷들(① header+span 매칭, ② titleKo/titleEn/timeKo/timeEn 분리 포맷)로
+ * 저장된 표 데이터를 현재 포맷으로 변환.
+ * 현재 포맷: { rows: [{ date: "09.04", blocks: Block[] }, ...] }
+ * Block = { title, time, tone } (제목/시간을 각 칸에 언어 구분 없이 직접 저장)
  */
 window.normalizeTable = function (table) {
   if (!table) return null;
-  if (!table.header || !table.header.length) {
-    return { rows: table.rows || [] };
-  }
-  var headerSlotsKo = [], headerSlotsEn = [];
-  table.header.forEach(function (block) {
-    var span = block.span || 1;
-    for (var i = 0; i < span; i++) {
-      headerSlotsKo.push(block.ko || "");
-      headerSlotsEn.push(block.en || "");
-    }
-  });
-  function uniqueJoin(arr) {
-    var seen = [];
-    arr.forEach(function (v) { if (v && seen.indexOf(v) === -1) seen.push(v); });
-    return seen.join(" / ");
-  }
-  var newRows = (table.rows || []).map(function (row) {
-    var offset = 0;
-    var newBlocks = (row.blocks || []).map(function (block) {
+  var rows;
+  if (table.header && table.header.length) {
+    // 가장 오래된 포맷: header + span
+    var headerSlotsKo = [];
+    table.header.forEach(function (block) {
       var span = block.span || 1;
-      var titleKo = uniqueJoin(headerSlotsKo.slice(offset, offset + span));
-      var titleEn = uniqueJoin(headerSlotsEn.slice(offset, offset + span));
-      offset += span;
-      return { titleKo: titleKo, titleEn: titleEn, timeKo: block.ko || "", timeEn: block.en || "", tone: block.tone || "normal" };
+      for (var i = 0; i < span; i++) headerSlotsKo.push(block.ko || block.en || "");
+    });
+    function uniqueJoin(arr) {
+      var seen = [];
+      arr.forEach(function (v) { if (v && seen.indexOf(v) === -1) seen.push(v); });
+      return seen.join(" / ");
+    }
+    rows = (table.rows || []).map(function (row) {
+      var offset = 0;
+      var newBlocks = (row.blocks || []).map(function (block) {
+        var span = block.span || 1;
+        var title = uniqueJoin(headerSlotsKo.slice(offset, offset + span));
+        offset += span;
+        return { title: title, time: block.ko || block.en || "", tone: block.tone || "normal" };
+      });
+      return { date: row.date, blocks: newBlocks };
+    });
+  } else {
+    rows = table.rows || [];
+  }
+
+  // 두 번째 단계: 각 block을 { title, time, tone } 으로 통일 (중간 포맷인 titleKo/titleEn/timeKo/timeEn 지원)
+  rows = rows.map(function (row) {
+    var newBlocks = (row.blocks || []).map(function (block) {
+      if (block.title !== undefined || block.time !== undefined) {
+        return { title: block.title || "", time: block.time || "", tone: block.tone || "normal" };
+      }
+      return {
+        title: block.titleKo || block.titleEn || "",
+        time: block.timeKo || block.timeEn || "",
+        tone: block.tone || "normal"
+      };
     });
     return { date: row.date, blocks: newBlocks };
   });
-  return { rows: newRows };
+
+  return { rows: rows };
+};
+
+// 번역 캐시 (같은 텍스트를 반복 번역 요청하지 않도록)
+var _translateCache = {};
+// 한글 텍스트를 영어로 자동 번역 (무료 MyMemory API 사용, 실패 시 원문 반환)
+window.translateText = async function (koText) {
+  if (!koText) return "";
+  if (_translateCache[koText]) return _translateCache[koText];
+  var stored = null;
+  try { stored = localStorage.getItem("translateCache:" + koText); } catch (e) {}
+  if (stored) { _translateCache[koText] = stored; return stored; }
+  try {
+    var url = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(koText) + "&langpair=ko|en";
+    var res = await fetch(url);
+    var data = await res.json();
+    var translated = (data && data.responseData && data.responseData.translatedText) ? data.responseData.translatedText : koText;
+    _translateCache[koText] = translated;
+    try { localStorage.setItem("translateCache:" + koText, translated); } catch (e) {}
+    return translated;
+  } catch (e) {
+    return koText;
+  }
 };
 
 /**
  * 표 데이터를 컨테이너에 렌더링.
  * tableData = { rows: [{ date: "09.04", blocks: Block[] }, ...] }
- * Block = { titleKo: "Mercure", titleEn: "Mercure", timeKo: "7:30", timeEn: "7:30", tone: "normal" }
- * lang = "ko" | "en"
+ * Block = { title: "Mercure", time: "7:30", tone: "normal" }
+ * lang = "ko" | "en" (표 내용 자체는 언어 구분 없이 그대로 표시)
  * selectedDate = 현재 선택된 날짜 라벨 (해당 행만 렌더링)
  */
 window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate) {
@@ -195,9 +226,7 @@ window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate)
   var list = document.createElement("div");
   list.className = "schedule-list";
   (row.blocks || []).forEach(function (block) {
-    var label = (lang === "en" ? block.titleEn : block.titleKo) || "";
-    var value = (lang === "en" ? block.timeEn : block.timeKo) || "";
-    list.appendChild(makeItem(label, value, block.tone));
+    list.appendChild(makeItem(block.title || "", block.time || "", block.tone));
   });
   containerEl.appendChild(list);
 
