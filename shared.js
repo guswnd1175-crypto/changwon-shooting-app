@@ -49,10 +49,40 @@ window.I18N = {
     backToHome: "← 홈으로",
     boardEmpty: "게시글이 없습니다.",
     editBoardTitle: "게시판 관리",
-    addPost: "+ 게시글 추가",
-    removePost: "게시글 삭제",
     postTitleLabel: "제목",
-    postContentLabel: "내용"
+    postContentLabel: "내용",
+    boardTabFree: "자유게시판",
+    boardTabCS: "CS 게시판",
+    writePostBtn: "+ 글쓰기",
+    searchPlaceholder: "검색어를 입력하세요",
+    postTitlePlaceholder: "제목을 입력하세요",
+    postContentPlaceholder: "내용을 입력하세요",
+    anonymousLabel: "익명",
+    postNamePlaceholder: "이름",
+    postCountryPlaceholder: "국가",
+    postPasswordPlaceholder: "비밀번호 (삭제/열람 시 필요)",
+    attachImageLabel: "사진 첨부 (선택)",
+    removeImageBtn: "사진 제거",
+    submitPostBtn: "등록",
+    cancelBtn: "취소",
+    backToListBtn: "← 목록으로",
+    commentsTitle: "댓글",
+    commentPlaceholder: "댓글을 입력하세요",
+    addCommentBtn: "등록",
+    noComments: "댓글이 없습니다.",
+    secretPostLabel: "비밀글입니다. 비밀번호를 입력해주세요.",
+    wrongPassword: "비밀번호가 일치하지 않습니다.",
+    deletePostBtn: "삭제",
+    deletePasswordPrompt: "삭제하려면 비밀번호를 입력하세요.",
+    adminReplyTitle: "관리자 답변",
+    adminReplyPlaceholder: "답변을 입력하세요",
+    saveReplyBtn: "답변 저장",
+    noReplyYet: "아직 답변이 없습니다.",
+    requiredFieldsMsg: "제목, 내용, 비밀번호를 입력해주세요.",
+    imageTooLargeMsg: "이미지 용량이 너무 큽니다. 다른 사진을 선택해주세요.",
+    anonymousDisplay: "익명",
+    secretLockLabel: "🔒 비밀글",
+    searchNoResult: "검색 결과가 없습니다."
   },
   en: {
     pageTitle: "Changwon 2026 WSPS World Championships",
@@ -92,10 +122,40 @@ window.I18N = {
     backToHome: "← Back to home",
     boardEmpty: "No posts yet.",
     editBoardTitle: "Manage Board",
-    addPost: "+ Add post",
-    removePost: "Remove post",
     postTitleLabel: "Title",
-    postContentLabel: "Content"
+    postContentLabel: "Content",
+    boardTabFree: "Free Board",
+    boardTabCS: "CS Board",
+    writePostBtn: "+ Write",
+    searchPlaceholder: "Search posts",
+    postTitlePlaceholder: "Enter a title",
+    postContentPlaceholder: "Write your content",
+    anonymousLabel: "Anonymous",
+    postNamePlaceholder: "Name",
+    postCountryPlaceholder: "Country",
+    postPasswordPlaceholder: "Password (required to delete/view)",
+    attachImageLabel: "Attach photo (optional)",
+    removeImageBtn: "Remove photo",
+    submitPostBtn: "Submit",
+    cancelBtn: "Cancel",
+    backToListBtn: "← Back to list",
+    commentsTitle: "Comments",
+    commentPlaceholder: "Write a comment",
+    addCommentBtn: "Post",
+    noComments: "No comments yet.",
+    secretPostLabel: "This is a private post. Enter the password to view.",
+    wrongPassword: "Incorrect password.",
+    deletePostBtn: "Delete",
+    deletePasswordPrompt: "Enter the password to delete this post.",
+    adminReplyTitle: "Admin reply",
+    adminReplyPlaceholder: "Write a reply",
+    saveReplyBtn: "Save reply",
+    noReplyYet: "No reply yet.",
+    requiredFieldsMsg: "Please fill in title, content, and password.",
+    imageTooLargeMsg: "The image is too large. Please choose another photo.",
+    anonymousDisplay: "Anonymous",
+    secretLockLabel: "🔒 Private",
+    searchNoResult: "No matching posts."
   }
 };
 
@@ -303,31 +363,55 @@ window.renderSubMenu = function (containerEl, activeKey, lang) {
   });
 };
 
-// 게시판 글 목록 렌더링. posts = [{ title, content }]
-window.renderBoardList = function (containerEl, posts, lang) {
-  containerEl.innerHTML = "";
-  var dict = window.I18N[lang] || window.I18N.ko;
-  if (!posts || posts.length === 0) {
-    var empty = document.createElement("div");
-    empty.className = "board-empty";
-    empty.textContent = dict.boardEmpty;
-    containerEl.appendChild(empty);
-    return;
-  }
-  var list = document.createElement("div");
-  list.className = "board-list";
-  posts.forEach(function (post) {
-    var item = document.createElement("div");
-    item.className = "board-post";
-    var titleEl = document.createElement("div");
-    titleEl.className = "board-post-title";
-    titleEl.textContent = post.title || "";
-    var contentEl = document.createElement("div");
-    contentEl.className = "board-post-content";
-    contentEl.textContent = post.content || "";
-    item.appendChild(titleEl);
-    item.appendChild(contentEl);
-    list.appendChild(item);
+// 게시판 두 종류(자유게시판 / CS게시판)
+window.BOARD_TYPES = [
+  { key: "free", i18nKey: "boardTabFree" },
+  { key: "cs", i18nKey: "boardTabCS" }
+];
+
+// 비밀번호(또는 임의 문자열)를 SHA-256 해시(hex)로 변환
+window.sha256Hex = async function (text) {
+  var enc = new TextEncoder().encode(text || "");
+  var buf = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+};
+
+// 이미지 파일을 캔버스로 리사이즈/압축해서 base64 data URL로 변환 (Firebase Storage 없이 Firestore에 바로 저장하기 위함)
+window.compressImageToDataUrl = function (file, maxDim, quality) {
+  maxDim = maxDim || 1000;
+  quality = quality || 0.7;
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var w = img.width, h = img.height;
+        if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+        var canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
-  containerEl.appendChild(list);
+};
+
+// 작성자 표시 이름: 익명이면 "익명"/"Anonymous", 아니면 "이름 (국가)"
+window.formatAuthor = function (post, lang) {
+  var dict = window.I18N[lang] || window.I18N.ko;
+  if (post.anonymous || !post.name) return dict.anonymousDisplay;
+  return post.country ? post.name + " (" + post.country + ")" : post.name;
+};
+
+// Firestore Timestamp(또는 없음) -> "YYYY.MM.DD HH:MM" 형태 문자열
+window.formatPostDate = function (ts) {
+  if (!ts || !ts.toDate) return "";
+  var d = ts.toDate();
+  function pad(n) { return String(n).padStart(2, "0"); }
+  return d.getFullYear() + "." + pad(d.getMonth() + 1) + "." + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
 };

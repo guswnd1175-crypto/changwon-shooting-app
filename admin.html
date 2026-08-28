@@ -56,12 +56,8 @@
     </div>
 
     <div class="section-title" data-i18n="editBoardTitle">게시판 관리</div>
-    <div id="boardEditor"></div>
-    <div class="save-bar">
-      <button class="btn outline small" id="addPostBtn" data-i18n="addPost">+ 게시글 추가</button>
-      <button class="btn" id="saveBoardBtn" data-i18n="saveBtn">저장 (실시간 반영)</button>
-      <div class="save-msg" id="boardSaveMsg"></div>
-    </div>
+    <div class="board-type-tabs" id="adminBoardTypeTabs"></div>
+    <div id="adminBoardListWrap"></div>
 
     <div class="section-title">초기 데이터</div>
     <div class="save-bar">
@@ -84,7 +80,8 @@
     getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
-    getFirestore, doc, getDoc, setDoc
+    getFirestore, doc, getDoc, setDoc,
+    collection, query, orderBy, onSnapshot, deleteDoc, updateDoc, getDocs, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const app = initializeApp(window.FIREBASE_CONFIG);
@@ -106,7 +103,8 @@
   document.getElementById("langBtnEdit").addEventListener("click", function () {
     setLang(lang === "ko" ? "en" : "ko");
     renderRowsEditor();
-    renderBoardEditor();
+    renderAdminBoardTypeTabs();
+    renderAdminBoardList();
   });
 
   // ---------- 로그인 ----------
@@ -316,60 +314,106 @@
   });
 
   // ---------- 게시판 ----------
-  let boardPosts = [];
-  function renderBoardEditor() {
-    const container = document.getElementById("boardEditor");
-    container.innerHTML = "";
-    boardPosts.forEach(function (post, idx) {
+  let adminAllPosts = [];
+  let currentAdminBoard = "free";
+
+  function renderAdminBoardTypeTabs() {
+    const el = document.getElementById("adminBoardTypeTabs");
+    el.innerHTML = "";
+    window.BOARD_TYPES.forEach(function (b) {
+      const tab = document.createElement("div");
+      tab.className = "board-type-tab" + (b.key === currentAdminBoard ? " active" : "");
+      tab.textContent = window.I18N[lang][b.i18nKey];
+      tab.addEventListener("click", function () {
+        currentAdminBoard = b.key;
+        renderAdminBoardTypeTabs();
+        renderAdminBoardList();
+      });
+      el.appendChild(tab);
+    });
+  }
+
+  function renderAdminBoardList() {
+    const wrap = document.getElementById("adminBoardListWrap");
+    wrap.innerHTML = "";
+    const posts = adminAllPosts.filter(function (p) { return p.board === currentAdminBoard; });
+    if (posts.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "board-empty";
+      empty.textContent = window.I18N[lang].boardEmpty;
+      wrap.appendChild(empty);
+      return;
+    }
+    posts.forEach(function (post) {
       const card = document.createElement("div");
       card.className = "board-post-card";
 
-      const titleInput = document.createElement("input");
-      titleInput.type = "text";
-      titleInput.className = "field-text";
-      titleInput.placeholder = window.I18N[lang].postTitleLabel;
-      titleInput.value = post.title || "";
-      titleInput.addEventListener("input", function () { post.title = this.value; });
-      card.appendChild(titleInput);
+      const title = document.createElement("div");
+      title.className = "post-card-title";
+      title.textContent = post.title || "";
+      card.appendChild(title);
 
-      const contentArea = document.createElement("textarea");
-      contentArea.className = "field-textarea";
-      contentArea.placeholder = window.I18N[lang].postContentLabel;
-      contentArea.value = post.content || "";
-      contentArea.addEventListener("input", function () { post.content = this.value; });
-      card.appendChild(contentArea);
+      const meta = document.createElement("div");
+      meta.className = "post-card-meta";
+      meta.textContent = window.formatAuthor(post, lang) + " · " + window.formatPostDate(post.createdAt);
+      card.appendChild(meta);
+
+      const content = document.createElement("div");
+      content.className = "board-post-content";
+      content.textContent = post.content || "";
+      content.style.margin = "6px 0";
+      card.appendChild(content);
+
+      if (post.imageData) {
+        const img = document.createElement("img");
+        img.className = "post-thumb";
+        img.src = post.imageData;
+        card.appendChild(img);
+      }
+
+      if (post.board === "cs") {
+        const replyWrap = document.createElement("div");
+        replyWrap.style.marginTop = "8px";
+        const replyLabel = document.createElement("label");
+        replyLabel.textContent = window.I18N[lang].adminReplyTitle;
+        const replyArea = document.createElement("textarea");
+        replyArea.className = "field-textarea";
+        replyArea.placeholder = window.I18N[lang].adminReplyPlaceholder;
+        replyArea.value = (post.adminReply && post.adminReply.content) || "";
+        const saveReplyBtn = document.createElement("button");
+        saveReplyBtn.className = "btn small";
+        saveReplyBtn.textContent = window.I18N[lang].saveReplyBtn;
+        saveReplyBtn.addEventListener("click", async function () {
+          await updateDoc(doc(db, "posts", post.id), {
+            adminReply: { content: replyArea.value.trim(), createdAt: serverTimestamp() }
+          });
+        });
+        replyWrap.appendChild(replyLabel);
+        replyWrap.appendChild(replyArea);
+        replyWrap.appendChild(saveReplyBtn);
+        card.appendChild(replyWrap);
+      }
 
       const removeBtn = document.createElement("button");
       removeBtn.className = "link-btn";
-      removeBtn.textContent = window.I18N[lang].removePost;
-      removeBtn.addEventListener("click", function () {
-        boardPosts.splice(idx, 1);
-        renderBoardEditor();
+      removeBtn.textContent = window.I18N[lang].deletePostBtn;
+      removeBtn.addEventListener("click", async function () {
+        if (!confirm(window.I18N[lang].deletePostBtn + "?")) return;
+        await deleteDoc(doc(db, "posts", post.id));
+        try {
+          const commentsSnap = await getDocs(collection(db, "posts", post.id, "comments"));
+          for (const c of commentsSnap.docs) await deleteDoc(c.ref);
+        } catch (e) {}
       });
       card.appendChild(removeBtn);
 
-      container.appendChild(card);
+      wrap.appendChild(card);
     });
   }
-  document.getElementById("addPostBtn").addEventListener("click", function () {
-    boardPosts.push({ title: "", content: "" });
-    renderBoardEditor();
-  });
-  async function loadBoard() {
-    const snap = await getDoc(doc(db, "meta", "board"));
-    boardPosts = (snap.exists() && snap.data().posts) ? snap.data().posts : [];
-    renderBoardEditor();
-  }
-  document.getElementById("saveBoardBtn").addEventListener("click", async function () {
-    const msg = document.getElementById("boardSaveMsg");
-    try {
-      await setDoc(doc(db, "meta", "board"), { posts: boardPosts });
-      msg.textContent = window.I18N[lang].saved;
-      msg.className = "save-msg ok";
-    } catch (e) {
-      msg.textContent = window.I18N[lang].saveFail;
-      msg.className = "save-msg err";
-    }
+
+  onSnapshot(query(collection(db, "posts"), orderBy("createdAt", "desc")), function (snap) {
+    adminAllPosts = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    renderAdminBoardList();
   });
 
   // ---------- 샘플 데이터 불러오기 ----------
@@ -397,7 +441,8 @@
     renderDirTabs();
     renderRowsEditor();
     await loadNotice();
-    await loadBoard();
+    renderAdminBoardTypeTabs();
+    renderAdminBoardList();
   }
 </script>
 </body>

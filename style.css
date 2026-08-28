@@ -124,6 +124,51 @@ body {
 .board-post-content { font-size: 14px; white-space: pre-wrap; line-height: 1.5; }
 .board-empty { padding: 20px; text-align: center; color: #999; font-size: 13px; }
 
+/* Board type tabs (자유게시판 / CS 게시판) */
+.board-type-tabs { display: flex; margin: 10px 12px 0; border: 1px solid var(--accent); border-radius: 8px; overflow: hidden; }
+.board-type-tab { flex: 1; text-align: center; padding: 9px 6px; font-size: 13px; font-weight: bold; color: var(--accent); cursor: pointer; }
+.board-type-tab.active { background: var(--accent); color: #fff; }
+
+/* Toolbar: search + write button */
+.board-toolbar { display: flex; gap: 8px; margin: 10px 12px; }
+.search-input { flex: 1; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
+
+/* Post list cards */
+.post-card { margin: 0 12px 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; }
+.post-card-title { font-weight: bold; font-size: 14px; color: #222; margin-bottom: 6px; }
+.post-card-meta { font-size: 12px; color: #888; display: flex; justify-content: space-between; }
+.post-thumb { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-top: 8px; }
+.lock-icon { margin-right: 4px; }
+
+/* Write form */
+.post-form { margin: 0 12px; }
+.post-form label { display: block; font-size: 12px; color: #666; margin: 10px 0 4px; }
+.post-form input[type="text"],
+.post-form input[type="password"],
+.post-form textarea { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; font-family: inherit; box-sizing: border-box; }
+.post-form textarea { min-height: 100px; resize: vertical; }
+.post-form .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 13px; }
+.post-form .checkbox-row input { width: auto; }
+.post-form .author-fields { display: flex; gap: 8px; }
+.image-preview { max-width: 100%; margin-top: 8px; border-radius: 6px; display: none; }
+
+/* Post detail */
+.post-detail { margin: 0 12px; }
+.post-detail-title { font-size: 16px; font-weight: bold; margin-bottom: 6px; }
+.post-detail-meta { font-size: 12px; color: #888; margin-bottom: 12px; }
+.post-detail-content { font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin-bottom: 10px; }
+.post-detail-image { max-width: 100%; border-radius: 8px; margin-bottom: 10px; }
+
+.admin-reply-box { margin-top: 14px; padding: 10px; background: #f4f7f2; border-left: 3px solid var(--accent); border-radius: 4px; }
+.admin-reply-box .reply-title { font-weight: bold; font-size: 12px; color: var(--accent); margin-bottom: 4px; }
+.admin-reply-box .reply-content { font-size: 13px; white-space: pre-wrap; line-height: 1.5; }
+
+.comments-section { margin-top: 16px; }
+.comments-title { font-weight: bold; font-size: 13px; margin-bottom: 8px; }
+.comment-item { padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.comment-item:first-child { border-top: none; }
+.comment-meta { color: #888; font-size: 11px; margin-bottom: 2px; }
+
 /* Direction tabs */
 .dir-tabs {
   display: flex;
