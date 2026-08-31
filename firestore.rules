@@ -29,5 +29,13 @@ service cloud.firestore {
         allow update, delete: if request.auth != null;
       }
     }
+    // 버스 예약: 누구나 읽기/생성/취소(삭제) 가능(취소 시 이름+국가는 클라이언트에서 확인),
+    // 예약 정보 수정(관리자가 인원수 등 변경)은 로그인한 관리자만 가능
+    match /reservations/{reservationId} {
+      allow read: if true;
+      allow create: if true;
+      allow delete: if true;
+      allow update: if request.auth != null;
+    }
   }
 }

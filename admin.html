@@ -73,6 +73,11 @@
       <div id="adminBoardListWrap"></div>
     </div>
 
+    <div id="reservationSection" style="display:none;">
+      <div class="section-title" data-i18n="editReservationTitle">예약 관리</div>
+      <div id="adminReservationListWrap"></div>
+    </div>
+
     <div class="spacer"></div>
     <div class="admin-entry"><a href="index.html" data-i18n="backToMain">← 참가자 화면으로</a></div>
   </div>
@@ -114,13 +119,15 @@
     renderRowsEditor();
     renderAdminBoardTypeTabs();
     renderAdminBoardList();
+    renderAdminReservationList();
   });
 
   // ---------- 관리자 화면 섹션 탭 ----------
   const ADMIN_SECTIONS = [
     { key: "schedule", i18nKey: "editTableTitle", el: "scheduleSection" },
     { key: "notice", i18nKey: "editNoticeTitle", el: "noticeSection" },
-    { key: "board", i18nKey: "editBoardTitle", el: "boardSection" }
+    { key: "board", i18nKey: "editBoardTitle", el: "boardSection" },
+    { key: "reservation", i18nKey: "editReservationTitle", el: "reservationSection" }
   ];
   let currentAdminSection = "schedule";
 
@@ -453,6 +460,94 @@
   onSnapshot(query(collection(db, "posts"), orderBy("createdAt", "desc")), function (snap) {
     adminAllPosts = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
     renderAdminBoardList();
+  });
+
+  // ---------- 예약 관리 ----------
+  let adminAllReservations = [];
+
+  function renderAdminReservationList() {
+    const wrap = document.getElementById("adminReservationListWrap");
+    wrap.innerHTML = "";
+    if (adminAllReservations.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "board-empty";
+      empty.textContent = window.I18N[lang].reservationEmpty;
+      wrap.appendChild(empty);
+      return;
+    }
+    const sorted = adminAllReservations.slice().sort(function (a, b) {
+      return (a.date || "").localeCompare(b.date || "") ||
+        (a.direction || "").localeCompare(b.direction || "") ||
+        (a.time || "").localeCompare(b.time || "");
+    });
+    sorted.forEach(function (r) {
+      const card = document.createElement("div");
+      card.className = "board-post-card";
+
+      const dirLabel = (window.DIRECTIONS.find(function (d) { return d.key === r.direction; }) || {}).label || r.direction;
+      const info = document.createElement("div");
+      info.className = "post-card-title";
+      info.textContent = r.date + " · " + r.title + " " + r.time + " (" + dirLabel + ")";
+      card.appendChild(info);
+
+      const fieldsRow = document.createElement("div");
+      fieldsRow.style.display = "flex";
+      fieldsRow.style.gap = "6px";
+      fieldsRow.style.margin = "6px 0";
+
+      const nameInput = document.createElement("input");
+      nameInput.className = "field-text";
+      nameInput.placeholder = window.I18N[lang].postNamePlaceholder;
+      nameInput.value = r.name || "";
+      const countryInput = document.createElement("input");
+      countryInput.className = "field-text";
+      countryInput.placeholder = window.I18N[lang].postCountryPlaceholder;
+      countryInput.value = r.country || "";
+      const headcountInput = document.createElement("input");
+      headcountInput.type = "number";
+      headcountInput.min = "1";
+      headcountInput.className = "field-text";
+      headcountInput.style.flex = "0 0 60px";
+      headcountInput.value = r.headcount || 1;
+
+      fieldsRow.appendChild(nameInput);
+      fieldsRow.appendChild(countryInput);
+      fieldsRow.appendChild(headcountInput);
+      card.appendChild(fieldsRow);
+
+      const actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.gap = "10px";
+      actions.style.alignItems = "center";
+
+      const saveBtn = document.createElement("button");
+      saveBtn.className = "btn small";
+      saveBtn.textContent = lang === "ko" ? "저장" : "Save";
+      saveBtn.addEventListener("click", async function () {
+        await updateDoc(doc(db, "reservations", r.id), {
+          name: nameInput.value.trim(),
+          country: countryInput.value.trim(),
+          headcount: parseInt(headcountInput.value, 10) || 1
+        });
+      });
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "link-btn";
+      cancelBtn.textContent = window.I18N[lang].reserveCancelBtn;
+      cancelBtn.addEventListener("click", async function () {
+        if (!confirm(window.I18N[lang].reserveCancelConfirm)) return;
+        await deleteDoc(doc(db, "reservations", r.id));
+      });
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
+      card.appendChild(actions);
+
+      wrap.appendChild(card);
+    });
+  }
+
+  onSnapshot(collection(db, "reservations"), function (snap) {
+    adminAllReservations = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    renderAdminReservationList();
   });
 
   // ---------- 샘플 데이터 불러오기 ----------

@@ -24,16 +24,23 @@
     <div class="table-empty" data-i18n="loading">불러오는 중...</div>
   </div>
   <div class="schedule-notice" data-i18n="scheduleChangeNotice">※ 변동사항이 있을 시 즉시 반영됩니다.</div>
+  <div class="reserve-my-entry"><button class="btn outline small" id="myReservationBtn" data-i18n="myReservationBtn">예약 조회/취소</button></div>
 
   <div class="spacer"></div>
   <div class="admin-entry"><a href="admin.html" data-i18n="adminEntry">관리자 로그인</a></div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" style="display:none;">
+  <div class="modal-box" id="modalBox"></div>
 </div>
 
 <script src="firebase-config.js"></script>
 <script src="shared.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getFirestore, doc, onSnapshot, collection, addDoc, deleteDoc, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const app = initializeApp(window.FIREBASE_CONFIG);
   const db = getFirestore(app);
@@ -42,6 +49,7 @@
   let currentDirection = "toRange";
   let currentDate = null;
   const tableCache = { toRange: null, toCity: null };
+  let reservations = [];
 
   function renderDirTabs() {
     const el = document.getElementById("dirTabs");
@@ -71,10 +79,267 @@
       currentDate = d;
       render();
     }, lang);
-    window.renderScheduleRow(document.getElementById("tableWrap"), table, lang, currentDate);
+    window.renderScheduleRow(document.getElementById("tableWrap"), table, lang, currentDate, {
+      direction: currentDirection,
+      reservations: reservations,
+      showReservation: true,
+      onReserve: openReserveForm
+    });
     window.applyStaticI18n(lang);
     document.documentElement.lang = lang;
   }
+
+  // ---------- 예약 팝업 ----------
+  function openModal(el) {
+    var box = document.getElementById("modalBox");
+    box.innerHTML = "";
+    box.appendChild(el);
+    document.getElementById("modalOverlay").style.display = "flex";
+  }
+  function closeModal() {
+    document.getElementById("modalOverlay").style.display = "none";
+    document.getElementById("modalBox").innerHTML = "";
+  }
+  document.getElementById("modalOverlay").addEventListener("click", function (e) {
+    if (e.target === this) closeModal();
+  });
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function openReserveForm(blockInfo) {
+    var dict = window.I18N[lang];
+    var wrap = document.createElement("div");
+    wrap.className = "post-form";
+    wrap.style.margin = "0";
+
+    var title = document.createElement("div");
+    title.className = "section-title";
+    title.textContent = dict.reserveFormTitle;
+    wrap.appendChild(title);
+
+    var info = document.createElement("div");
+    info.style.fontSize = "13px";
+    info.style.color = "#667a67";
+    info.style.margin = "0 0 10px";
+    info.textContent = blockInfo.date + " · " + blockInfo.title + " " + blockInfo.time;
+    wrap.appendChild(info);
+
+    var nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.placeholder = dict.reserveNamePlaceholder;
+    wrap.appendChild(nameInput);
+
+    var countryInput = document.createElement("input");
+    countryInput.type = "text";
+    countryInput.placeholder = dict.reserveCountryPlaceholder;
+    countryInput.style.marginTop = "8px";
+    wrap.appendChild(countryInput);
+
+    var headcountLabel = document.createElement("label");
+    headcountLabel.textContent = dict.reserveHeadcountLabel;
+    wrap.appendChild(headcountLabel);
+    var headcountInput = document.createElement("input");
+    headcountInput.type = "number";
+    headcountInput.min = "1";
+    headcountInput.value = "1";
+    wrap.appendChild(headcountInput);
+
+    var msg = document.createElement("div");
+    msg.className = "save-msg err";
+    wrap.appendChild(msg);
+
+    var bar = document.createElement("div");
+    bar.className = "save-bar";
+    bar.style.margin = "14px 0 0";
+    var cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn outline small";
+    cancelBtn.textContent = dict.cancelBtn;
+    cancelBtn.addEventListener("click", closeModal);
+    var nextBtn = document.createElement("button");
+    nextBtn.className = "btn small";
+    nextBtn.textContent = dict.reserveNextBtn;
+    nextBtn.addEventListener("click", function () {
+      var name = nameInput.value.trim();
+      var country = countryInput.value.trim();
+      var headcount = parseInt(headcountInput.value, 10);
+      if (!name || !country || !headcount || headcount < 1) {
+        msg.textContent = dict.reserveRequiredMsg;
+        return;
+      }
+      var currentCount = reservations.reduce(function (sum, r) {
+        return r.blockKey === blockInfo.blockKey ? sum + (r.headcount || 0) : sum;
+      }, 0);
+      var remaining = window.BUS_CAPACITY - currentCount;
+      if (headcount > remaining) {
+        msg.textContent = dict.reserveOverCapacityMsg;
+        return;
+      }
+      openReserveConfirm(blockInfo, { name: name, country: country, headcount: headcount });
+    });
+    bar.appendChild(cancelBtn);
+    bar.appendChild(nextBtn);
+    wrap.appendChild(bar);
+
+    openModal(wrap);
+  }
+
+  function openReserveConfirm(blockInfo, formData) {
+    var dict = window.I18N[lang];
+    var wrap = document.createElement("div");
+    wrap.className = "post-form";
+    wrap.style.margin = "0";
+
+    var title = document.createElement("div");
+    title.className = "section-title";
+    title.textContent = dict.reserveConfirmTitle;
+    wrap.appendChild(title);
+
+    var desc = document.createElement("div");
+    desc.style.fontSize = "13px";
+    desc.style.margin = "0 0 10px";
+    desc.textContent = dict.reserveConfirmDesc;
+    wrap.appendChild(desc);
+
+    var summary = document.createElement("div");
+    summary.className = "admin-row-card";
+    summary.innerHTML =
+      "<div><strong>" + escapeHtml(blockInfo.date + " · " + blockInfo.title + " " + blockInfo.time) + "</strong></div>" +
+      "<div>" + dict.postNamePlaceholder + ": " + escapeHtml(formData.name) + "</div>" +
+      "<div>" + dict.postCountryPlaceholder + ": " + escapeHtml(formData.country) + "</div>" +
+      "<div>" + dict.reserveHeadcountLabel + ": " + formData.headcount + "</div>";
+    wrap.appendChild(summary);
+
+    var msg = document.createElement("div");
+    msg.className = "save-msg";
+    wrap.appendChild(msg);
+
+    var bar = document.createElement("div");
+    bar.className = "save-bar";
+    bar.style.margin = "14px 0 0";
+    var backBtn = document.createElement("button");
+    backBtn.className = "btn outline small";
+    backBtn.textContent = dict.reserveBackBtn;
+    backBtn.addEventListener("click", function () { openReserveForm(blockInfo); });
+    var confirmBtn = document.createElement("button");
+    confirmBtn.className = "btn small";
+    confirmBtn.textContent = dict.reserveConfirmBtn;
+    confirmBtn.addEventListener("click", async function () {
+      try {
+        await addDoc(collection(db, "reservations"), {
+          direction: blockInfo.direction,
+          date: blockInfo.date,
+          title: blockInfo.title,
+          time: blockInfo.time,
+          blockKey: blockInfo.blockKey,
+          name: formData.name,
+          country: formData.country,
+          headcount: formData.headcount,
+          createdAt: serverTimestamp()
+        });
+        closeModal();
+        alert(dict.reserveSuccessMsg);
+      } catch (e) {
+        msg.className = "save-msg err";
+        msg.textContent = dict.reserveFailMsg;
+      }
+    });
+    bar.appendChild(backBtn);
+    bar.appendChild(confirmBtn);
+    wrap.appendChild(bar);
+
+    openModal(wrap);
+  }
+
+  function openMyReservations() {
+    var dict = window.I18N[lang];
+    var wrap = document.createElement("div");
+    wrap.className = "post-form";
+    wrap.style.margin = "0";
+
+    var title = document.createElement("div");
+    title.className = "section-title";
+    title.textContent = dict.myReservationTitle;
+    wrap.appendChild(title);
+
+    var desc = document.createElement("div");
+    desc.style.fontSize = "13px";
+    desc.style.margin = "0 0 10px";
+    desc.textContent = dict.myReservationDesc;
+    wrap.appendChild(desc);
+
+    var nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.placeholder = dict.reserveNamePlaceholder;
+    wrap.appendChild(nameInput);
+
+    var countryInput = document.createElement("input");
+    countryInput.type = "text";
+    countryInput.placeholder = dict.reserveCountryPlaceholder;
+    countryInput.style.marginTop = "8px";
+    wrap.appendChild(countryInput);
+
+    var resultWrap = document.createElement("div");
+    resultWrap.style.marginTop = "12px";
+    wrap.appendChild(resultWrap);
+
+    var bar = document.createElement("div");
+    bar.className = "save-bar";
+    bar.style.margin = "14px 0 0";
+    var closeBtn = document.createElement("button");
+    closeBtn.className = "btn outline small";
+    closeBtn.textContent = dict.cancelBtn;
+    closeBtn.addEventListener("click", closeModal);
+    var searchBtn = document.createElement("button");
+    searchBtn.className = "btn small";
+    searchBtn.textContent = dict.myReservationSearchBtn;
+    searchBtn.addEventListener("click", function () {
+      var name = nameInput.value.trim().toLowerCase();
+      var country = countryInput.value.trim().toLowerCase();
+      resultWrap.innerHTML = "";
+      if (!name || !country) {
+        resultWrap.textContent = dict.reserveRequiredMsg;
+        return;
+      }
+      var matches = reservations.filter(function (r) {
+        return (r.name || "").trim().toLowerCase() === name && (r.country || "").trim().toLowerCase() === country;
+      });
+      if (matches.length === 0) {
+        resultWrap.textContent = dict.myReservationNoResult;
+        return;
+      }
+      matches.forEach(function (r) {
+        var card = document.createElement("div");
+        card.className = "admin-row-card";
+        var dirLabel = (window.DIRECTIONS.find(function (d) { return d.key === r.direction; }) || {}).label || r.direction;
+        var info = document.createElement("div");
+        info.textContent = r.date + " · " + r.title + " " + r.time + " (" + dirLabel + ") · " + r.headcount + (lang === "en" ? " people" : "명");
+        card.appendChild(info);
+        var cancelBtn = document.createElement("button");
+        cancelBtn.className = "link-btn";
+        cancelBtn.style.marginTop = "6px";
+        cancelBtn.textContent = dict.reserveCancelBtn;
+        cancelBtn.addEventListener("click", async function () {
+          if (!confirm(dict.reserveCancelConfirm)) return;
+          await deleteDoc(doc(db, "reservations", r.id));
+          alert(dict.reserveCancelSuccess);
+          searchBtn.click();
+        });
+        card.appendChild(cancelBtn);
+        resultWrap.appendChild(card);
+      });
+    });
+    bar.appendChild(closeBtn);
+    bar.appendChild(searchBtn);
+    wrap.appendChild(bar);
+
+    openModal(wrap);
+  }
+
+  document.getElementById("myReservationBtn").addEventListener("click", openMyReservations);
 
   document.getElementById("langBtn").addEventListener("click", function () {
     lang = lang === "ko" ? "en" : "ko";
@@ -91,6 +356,10 @@
   });
   onSnapshot(doc(db, "schedules", "toCity"), function (snap) {
     tableCache.toCity = window.normalizeTable(snap.exists() ? snap.data() : null);
+    render();
+  });
+  onSnapshot(collection(db, "reservations"), function (snap) {
+    reservations = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
     render();
   });
 

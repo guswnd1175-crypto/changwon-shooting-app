@@ -88,7 +88,33 @@ window.I18N = {
     postPasswordEditPlaceholder: "비밀번호 변경 시에만 입력 (선택)",
     newPostTitle: "새 글 작성",
     editPostTitle: "게시글 수정",
-    scheduleChangeNotice: "※ 변동사항이 있을 시 즉시 반영됩니다."
+    scheduleChangeNotice: "※ 변동사항이 있을 시 즉시 반영됩니다.",
+    reserveBtn: "예약하기",
+    reserveFull: "예약 마감",
+    reserveStatusSuffix: "명 예약됨",
+    reserveFormTitle: "버스 예약",
+    reserveNamePlaceholder: "이름 *",
+    reserveCountryPlaceholder: "국가 *",
+    reserveHeadcountLabel: "예약 인원 *",
+    reserveNextBtn: "다음",
+    reserveRequiredMsg: "이름, 국가, 인원 수를 모두 입력해주세요.",
+    reserveOverCapacityMsg: "예약 가능한 좌석보다 많습니다.",
+    reserveConfirmTitle: "예약 내용 확인",
+    reserveConfirmDesc: "아래 내용으로 예약하시겠습니까?",
+    reserveBackBtn: "이전",
+    reserveConfirmBtn: "예약 확정",
+    reserveSuccessMsg: "예약이 완료되었습니다.",
+    reserveFailMsg: "예약에 실패했습니다.",
+    myReservationBtn: "예약 조회/취소",
+    myReservationTitle: "예약 조회",
+    myReservationDesc: "예약 시 입력한 이름과 국가를 입력해주세요.",
+    myReservationSearchBtn: "조회",
+    myReservationNoResult: "일치하는 예약이 없습니다.",
+    reserveCancelBtn: "예약 취소",
+    reserveCancelConfirm: "정말 취소하시겠습니까?",
+    reserveCancelSuccess: "예약이 취소되었습니다.",
+    editReservationTitle: "예약 관리",
+    reservationEmpty: "예약이 없습니다."
   },
   en: {
     pageTitle: "Changwon 2026 WSPS World Championships",
@@ -167,7 +193,33 @@ window.I18N = {
     postPasswordEditPlaceholder: "Enter only to change password (optional)",
     newPostTitle: "New Post",
     editPostTitle: "Edit Post",
-    scheduleChangeNotice: "※ Any changes will be reflected immediately."
+    scheduleChangeNotice: "※ Any changes will be reflected immediately.",
+    reserveBtn: "Reserve",
+    reserveFull: "Full",
+    reserveStatusSuffix: " reserved",
+    reserveFormTitle: "Reserve Bus",
+    reserveNamePlaceholder: "Name *",
+    reserveCountryPlaceholder: "Country *",
+    reserveHeadcountLabel: "Number of People *",
+    reserveNextBtn: "Next",
+    reserveRequiredMsg: "Please fill in name, country, and number of people.",
+    reserveOverCapacityMsg: "Exceeds the number of available seats.",
+    reserveConfirmTitle: "Confirm Reservation",
+    reserveConfirmDesc: "Do you want to reserve with the following details?",
+    reserveBackBtn: "Back",
+    reserveConfirmBtn: "Confirm Reservation",
+    reserveSuccessMsg: "Reservation complete.",
+    reserveFailMsg: "Reservation failed.",
+    myReservationBtn: "My Reservations",
+    myReservationTitle: "Find My Reservation",
+    myReservationDesc: "Enter the name and country you used when reserving.",
+    myReservationSearchBtn: "Search",
+    myReservationNoResult: "No matching reservation found.",
+    reserveCancelBtn: "Cancel Reservation",
+    reserveCancelConfirm: "Are you sure you want to cancel this reservation?",
+    reserveCancelSuccess: "Reservation cancelled.",
+    editReservationTitle: "Manage Reservations",
+    reservationEmpty: "No reservations yet."
   }
 };
 
@@ -295,14 +347,24 @@ window.translateText = async function (koText) {
   }
 };
 
+// 버스 한 대(칸)당 예약 정원
+window.BUS_CAPACITY = 20;
+
+// 특정 버스(방향+날짜+제목+시간)를 구분하는 키 생성. 예약 데이터의 blockKey 필드로 사용.
+window.makeBlockKey = function (direction, date, title, time) {
+  return [direction || "", date || "", (title || "").trim(), (time || "").trim()].join("::");
+};
+
 /**
  * 표 데이터를 컨테이너에 렌더링.
  * tableData = { rows: [{ date: "09.04", blocks: Block[] }, ...] }
  * Block = { title: "Mercure", time: "7:30", tone: "normal" }
  * lang = "ko" | "en" (표 내용 자체는 언어 구분 없이 그대로 표시)
  * selectedDate = 현재 선택된 날짜 라벨 (해당 행만 렌더링)
+ * opts = { direction, reservations: [...], showReservation: bool, onReserve: function(blockInfo) }
  */
-window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate) {
+window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate, opts) {
+  opts = opts || {};
   containerEl.innerHTML = "";
   if (!tableData) return;
 
@@ -315,24 +377,73 @@ window.renderScheduleRow = function (containerEl, tableData, lang, selectedDate)
     return;
   }
 
+  var dict = window.I18N[lang] || window.I18N.ko;
   var list = document.createElement("div");
   list.className = "schedule-list";
   (row.blocks || []).forEach(function (block) {
-    list.appendChild(makeItem(block.title || "", block.time || "", block.tone));
+    list.appendChild(makeItem(block));
   });
   containerEl.appendChild(list);
 
-  function makeItem(label, value, tone) {
+  function makeItem(block) {
     var item = document.createElement("div");
-    item.className = "schedule-item " + window.toneClass(tone);
+    item.className = "schedule-item " + window.toneClass(block.tone);
+
+    var top = document.createElement("div");
+    top.className = "schedule-item-top";
     var labelEl = document.createElement("div");
-    labelEl.className = "item-label " + window.locationClass(label, tone);
-    labelEl.textContent = label;
+    labelEl.className = "item-label " + window.locationClass(block.title, block.tone);
+    labelEl.textContent = block.title || "";
     var valueEl = document.createElement("div");
     valueEl.className = "item-value";
-    valueEl.textContent = value;
-    item.appendChild(labelEl);
-    item.appendChild(valueEl);
+    valueEl.textContent = block.time || "";
+    top.appendChild(labelEl);
+    top.appendChild(valueEl);
+    item.appendChild(top);
+
+    if (opts.showReservation && block.title && block.time) {
+      var blockKey = window.makeBlockKey(opts.direction, row.date, block.title, block.time);
+      var count = (opts.reservations || []).reduce(function (sum, r) {
+        return r.blockKey === blockKey ? sum + (r.headcount || 0) : sum;
+      }, 0);
+      var capacity = window.BUS_CAPACITY;
+      var remaining = Math.max(0, capacity - count);
+      var full = remaining <= 0;
+
+      var resRow = document.createElement("div");
+      resRow.className = "reserve-row";
+
+      var status = document.createElement("div");
+      status.className = "reserve-status" + (full ? " full" : "");
+      status.textContent = full ? dict.reserveFull : (count + "/" + capacity + dict.reserveStatusSuffix);
+      resRow.appendChild(status);
+
+      var btn = document.createElement("button");
+      btn.className = "btn small reserve-btn";
+      btn.textContent = dict.reserveBtn;
+      if (full) {
+        btn.disabled = true;
+        btn.classList.add("disabled");
+      }
+      btn.addEventListener("click", function () {
+        if (opts.onReserve) {
+          opts.onReserve({
+            direction: opts.direction,
+            date: row.date,
+            title: block.title,
+            time: block.time,
+            tone: block.tone,
+            blockKey: blockKey,
+            count: count,
+            remaining: remaining
+          });
+        }
+      });
+      resRow.appendChild(btn);
+
+      item.appendChild(resRow);
+    }
+
     return item;
   }
 };
